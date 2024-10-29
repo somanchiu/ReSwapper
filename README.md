@@ -5,9 +5,9 @@ ReSwapper aims to reproduce the implementation of inswapper. This repository pro
 Here is the comparesion of the output of Inswapper and Reswapper.
 | Target | Source | Inswapper Output | Reswapper Output (Step 429500) |
 |--------|--------|--------|--------|
-| ![targetImg](example\1\target.jpg) |![targetImg](example\1\source.jpg) | ![targetImg](example\1\inswapperOutput.jpg) | ![targetImg](example\1\reswapperOutput.jpg) |
-| ![targetImg](example\2\target.jpg) |![targetImg](example\2\source.jpg) | ![targetImg](example\2\inswapperOutput.jpg) | ![targetImg](example\2\reswapperOutput.jpg) |
-| ![targetImg](example\3\target.jpg) |![targetImg](example\3\source.png) | ![targetImg](example\3\inswapperOutput.jpg) | ![targetImg](example\3\reswapperOutput.jpg) |
+| ![image](example/1/target.jpg) |![image](example/1/source.jpg) | ![image](example/1/inswapperOutput.jpg) | ![image](example/1/reswapperOutput.jpg) |
+| ![image](example/2/target.jpg) |![image](example/2/source.jpg) | ![image](example/2/inswapperOutput.jpg) | ![image](example/2/reswapperOutput.jpg) |
+| ![image](example/3/target.jpg) |![image](example/3/source.png) | ![image](example/3/inswapperOutput.jpg) | ![image](example/3/reswapperOutput.jpg) |
 
 ## Installation
 
