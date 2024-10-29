@@ -63,7 +63,7 @@ Download [FFHQ](https://www.kaggle.com/datasets/arnaud58/flickrfaceshq-dataset-f
 
 Optimizer: Adam
 
-Rearning rate: 0.0001
+Learning rate: 0.0001
 
 Modify the code in train.py if needed. Then, execute:
 ```python
