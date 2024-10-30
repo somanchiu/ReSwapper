@@ -288,7 +288,7 @@ def f32tof16tof32(tensor_f32):
 
 #     return style_loss
 
-def train(datasetDir, dataset=None, num_epochs=1000, batch_size=1, learning_rate=0.0001, model_path=None, outputModelFolder='', saveModelEachSteps = 1, stopAtSteps=None, logDir=None):
+def train(datasetDir, dataset=None, num_epochs=1000, batch_size=1, learning_rate=0.0001, model_path=None, outputModelFolder='', saveModelEachSteps = 1, stopAtSteps=None, logDir=None, previewDir=None):
     # Get the device (GPU if available, else CPU)
     device = get_device()
     print(f"Using device: {device}")
@@ -618,7 +618,9 @@ def train(datasetDir, dataset=None, num_epochs=1000, batch_size=1, learning_rate
                 outputModelPath = f"{outputModelFolder}/{outputModelPath}"
             saveModel(model, outputModelPath)
 
-            validation_total_loss, validation_content_loss, validation_identity_loss = validate(outputModelPath, totalSteps)
+            validation_total_loss, validation_content_loss, validation_identity_loss, swapped_face = validate(outputModelPath)
+            if previewDir is not None:
+                cv2.imwrite(f"{previewDir}/{totalSteps}.jpg", swapped_face)
 
             val_writer.add_scalar("Loss/total", validation_total_loss.item(), totalSteps)
             val_writer.add_scalar("Loss/content_loss", validation_content_loss.item(), totalSteps)
@@ -738,15 +740,14 @@ def gradient_loss(output, target):
     
     return torch.mean(grad_diff_x) + torch.mean(grad_diff_y)
 
-def validate(modelPath, epoch):
+def validate(modelPath):
     model = load_model(modelPath)
     swapped_face, swapped_tensor= swap_face(model, test_target_face, test_l, None)
-    cv2.imwrite(f"./training/preview_10/{epoch}.jpg", swapped_face)
 
     validation_content_loss, validation_identity_loss, _ = style_loss_fn(swapped_tensor, torch.from_numpy(test_inswapperOutput).to(get_device()), None, None)
     validation_total_loss = validation_content_loss + validation_identity_loss
 
-    return validation_total_loss, validation_content_loss, validation_identity_loss
+    return validation_total_loss, validation_content_loss, validation_identity_loss, swapped_face
 
 # 5. Main function to run the training
 def main():
@@ -754,7 +755,10 @@ def main():
     modelPath = f"{outputModelFolder}/reswapper-429500.pth"
 
     logDir = "training/log"
+    previewDir = "training/preview"
     datasetDir = "FFHQ"
+
+    os.makedirs(previewDir, exist_ok=True)
 
     train(
         datasetDir=datasetDir,
@@ -766,7 +770,8 @@ def main():
         outputModelFolder=outputModelFolder,
         saveModelEachSteps = 1000,
         stopAtSteps = 70000,
-        logDir=f"{logDir}/{datetime.now().strftime('%Y%m%d %H%M%S')}")
+        logDir=f"{logDir}/{datetime.now().strftime('%Y%m%d %H%M%S')}",
+        previewDir=previewDir)
                     
 if __name__ == "__main__":
     main()
