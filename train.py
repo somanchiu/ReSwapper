@@ -624,7 +624,8 @@ def train(datasetDir, dataset=None, num_epochs=1000, batch_size=1, learning_rate
 
             val_writer.add_scalar("Loss/total", validation_total_loss.item(), totalSteps)
             val_writer.add_scalar("Loss/content_loss", validation_content_loss.item(), totalSteps)
-            val_writer.add_scalar("Loss/identity_loss", validation_identity_loss.item(), totalSteps)
+            if validation_identity_loss is not None:
+                val_writer.add_scalar("Loss/identity_loss", validation_identity_loss.item(), totalSteps)
 
             # create_onnx_model(outputModelPath)
 
@@ -745,7 +746,10 @@ def validate(modelPath):
     swapped_face, swapped_tensor= swap_face(model, test_target_face, test_l, None)
 
     validation_content_loss, validation_identity_loss, _ = style_loss_fn(swapped_tensor, torch.from_numpy(test_inswapperOutput).to(get_device()), None, None)
-    validation_total_loss = validation_content_loss + validation_identity_loss
+
+    validation_total_loss = validation_content_loss
+    if validation_identity_loss is not None:
+        validation_total_loss += validation_identity_loss
 
     return validation_total_loss, validation_content_loss, validation_identity_loss, swapped_face
 
