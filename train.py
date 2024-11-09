@@ -751,7 +751,8 @@ def validate(modelPath):
 # 5. Main function to run the training
 def main():
     outputModelFolder = "model"
-    modelPath = f"{outputModelFolder}/reswapper-429500.pth"
+    modelPath = None
+    # modelPath = f"{outputModelFolder}/reswapper-429500.pth"
 
     logDir = "training/log"
     previewDir = "training/preview"
