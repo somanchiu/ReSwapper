@@ -5,13 +5,17 @@ import numpy as np
 from insightface.app import FaceAnalysis
 from pytorch_msssim import ssim
 
+import Image
+
 class StyleTransferLoss(nn.Module):
-    def __init__(self, device='cuda', inswapper=None):
+    def __init__(self, device='cuda', face_analysis = None):
         super(StyleTransferLoss, self).__init__()
-        self.face_analysis = FaceAnalysis(providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
-        self.face_analysis.prepare(ctx_id=0, det_size=(128, 128))
+        if face_analysis is None:
+            self.face_analysis = FaceAnalysis(providers=['CUDAExecutionProvider', 'CPUExecutionProvider'])
+            self.face_analysis.prepare(ctx_id=0, det_size=(128, 128))
+        else:
+            self.face_analysis = face_analysis
         self.device = device
-        self.inswapper = inswapper
         self.cosine_similarity = nn.CosineSimilarity(dim=0)
         
         # Content loss
@@ -29,18 +33,18 @@ class StyleTransferLoss(nn.Module):
         G = torch.mm(input, input.t())
         return G
 
-    def extract_face_embedding(self, image):
-        # Convert torch tensor to numpy array
-        face_tensor = image.squeeze().cpu().detach()
-        # face_tensor = (face_tensor * 0.5 + 0.5).clamp(0, 1)
-        face_np = (face_tensor.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
-        face_np = cv2.cvtColor(face_np, cv2.COLOR_RGB2BGR)
+    # def extract_face_embedding(self, image):
+    #     # Convert torch tensor to numpy array
+    #     face_tensor = image.squeeze().cpu().detach()
+    #     # face_tensor = (face_tensor * 0.5 + 0.5).clamp(0, 1)
+    #     face_np = (face_tensor.permute(1, 2, 0).numpy() * 255).astype(np.uint8)
+    #     face_np = cv2.cvtColor(face_np, cv2.COLOR_RGB2BGR)
 
-        # Extract face embedding
-        faces = self.face_analysis.get(face_np)
-        if len(faces) == 0:
-            return None
-        return torch.tensor(faces[0].normed_embedding).to(self.device)
+    #     # Extract face embedding
+    #     faces = self.face_analysis.get(face_np)
+    #     if len(faces) == 0:
+    #         return None
+    #     return torch.tensor(faces[0].normed_embedding).to(self.device)
     
     def extract_face_latent(self, image):
         # Convert torch tensor to numpy array
@@ -53,7 +57,7 @@ class StyleTransferLoss(nn.Module):
         faces = self.face_analysis.get(face_np)
         if len(faces) == 0:
             return None
-        return torch.tensor(self.inswapper.getLatent(faces[0])[0]).to(self.device)
+        return torch.tensor(Image.getLatent(faces[0])[0]).to(self.device)
     
     def get_style_loss(self, latent1, latent2):
         # target = torch.tensor([1.0]).to("cuda")

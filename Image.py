@@ -5,7 +5,6 @@ import numpy as np
 emap = np.load("emap.npy")
 input_std = 255.0
 input_mean = 0.0
-input_size = (128, 128)
 
 def postprocess_face(face_tensor):
     face_tensor = face_tensor.squeeze().cpu().detach()
@@ -14,7 +13,7 @@ def postprocess_face(face_tensor):
 
     return face_np
 
-def getBlob(aimg):
+def getBlob(aimg, input_size = (128, 128)):
     blob = cv2.dnn.blobFromImage(aimg, 1.0 / input_std, input_size,
                             (input_mean, input_mean, input_mean), swapRB=True)
     return blob

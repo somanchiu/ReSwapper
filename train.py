@@ -5,8 +5,8 @@ import onnx
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from INSwapper import INSwapper
 
+import Image
 from StyleTransferLoss import StyleTransferLoss
 import onnxruntime as rt
 
@@ -31,6 +31,7 @@ from StyleTransferModel_128 import StyleTransferModel
 #             device="cuda",
 #         )
 inswapper_128_path = 'inswapper_128.onnx'
+img_size = 128
 
 logDir = None
 # logWriter = None
@@ -50,8 +51,6 @@ import torch.nn.functional as F
 # from MaskedImage import MaskedImage
 # maskedImageCreator = MaskedImage()
 
-inswapper = INSwapper(inswapper_128_path)
-
 from torch.utils.tensorboard import SummaryWriter
 
 faceAnalysis = FaceAnalysis(name='buffalo_l')
@@ -60,7 +59,7 @@ faceAnalysis.prepare(ctx_id=0, det_size=(640, 640))
 
 def get_device():
     return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-style_loss_fn = StyleTransferLoss(inswapper=inswapper).to(get_device())
+style_loss_fn = StyleTransferLoss().to(get_device())
 
 # facial_mask = Mask()
 
@@ -343,8 +342,6 @@ def train(datasetDir, dataset=None, num_epochs=1000, batch_size=1, learning_rate
     # feature_extractor = FeatureExtractor().to(device).eval()
 
     image = os.listdir(datasetDir)
-    imgSize = 128
-    faceAnalysis.prepare(ctx_id=0, det_size=(512, 512))
 
     alpha=0.01
     temperature=2.0
@@ -369,9 +366,9 @@ def train(datasetDir, dataset=None, num_epochs=1000, batch_size=1, learning_rate
             faces2 = faces
 
         if len(faces) > 0 and len(faces2) > 0:
-            new_aligned_face, _ = face_align.norm_crop2(target_img, faces[0].kps, imgSize)
-            blob = inswapper.getBlob(new_aligned_face)
-            latent = inswapper.getLatent(faces2[0])
+            new_aligned_face, _ = face_align.norm_crop2(target_img, faces[0].kps, img_size)
+            blob = Image.getBlob(new_aligned_face)
+            latent = Image.getLatent(faces2[0])
         else:
             continue
 
@@ -693,16 +690,14 @@ def swap_face(model, target_face, source_face_latent, mask):
 
 # test image
 test_img = ins_get_image('t1')
-# faceAnalysis.prepare(ctx_id=0, det_size=(512, 512))
-faceAnalysis.prepare(ctx_id=0, det_size=(640, 640))
 
 test_faces = faceAnalysis.get(test_img)
 test_faces = sorted(test_faces, key = lambda x : x.bbox[0])
 # test_source_face, _ = face_align.norm_crop2(test_img, test_faces[2].kps, 128)
 # test_source_face2 = faceAnalysis.get(test_source_face)[0]
-test_target_face, _ = face_align.norm_crop2(test_img, test_faces[0].kps, 128)
-test_target_face = inswapper.getBlob(test_target_face)
-test_l = inswapper.getLatent(test_faces[2])
+test_target_face, _ = face_align.norm_crop2(test_img, test_faces[0].kps, img_size)
+test_target_face = Image.getBlob(test_target_face)
+test_l = Image.getLatent(test_faces[2])
 
 test_input = {sess.get_inputs()[0].name: test_target_face,
         sess.get_inputs()[1].name: test_l}
