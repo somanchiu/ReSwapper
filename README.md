@@ -35,7 +35,7 @@ model = onnx.load('test.onnx')
 printable_graph=onnx.helper.printable_graph(model.graph)
 ```
 
-### Model input
+### Model inputs
 - target: [1, 3, 128, 128] shape, normalized to [-1, 1] range
 - source (latent): [1, 512] shape, the features of the source face
     - Calculation of latent, "emap" can be extracted from the original inswapper model.
@@ -45,6 +45,12 @@ printable_graph=onnx.helper.printable_graph(model.graph)
         latent /= np.linalg.norm(latent)
         ```
 
+### Model output
+Model inswapper_128 not only changes facial features, but also body shape.
+
+| Target | Source | Inswapper Output | Reswapper Output<br>(Step 429500) |
+|--------|--------|--------|--------|
+| ![image](example/1/target.jpg) |![image](example/1/source.jpg) | ![image](example/1/inswapperOutput.gif) | ![image](example/1/reswapperOutput.gif) |
 
 ### Loss Functions
 There is no information released from insightface. It is an important part of the training. However, there are a lot of articles and papers that can be referenced. By reading a substantial number of articles and papers on face swapping, ID fidelity, and style transfer, you'll frequently encounter the following keywords:
@@ -88,6 +94,6 @@ python swap.py
 - [reswapper-429500.pth](https://huggingface.co/somanchiu/reswapper/tree/main)
 
 ## To Do
-- Create 512 resolution model
+- Create a 512-resolution model (alternative to inswapper_512)
 - Implement face paste-back functionality
 - Add emap to the onnx file
