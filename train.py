@@ -67,7 +67,9 @@ style_loss_fn = StyleTransferLoss().to(get_device())
 # import torch.nn.functional as F
 # from torchvision import transforms, models
 
-def create_onnx_model(torch_model_path):
+def create_onnx_model(torch_model_path, save_emap=True):
+    output_path = torch_model_path.replace(".pth", ".onnx")
+
     device = get_device()
     # Initialize model with the pretrained weights
     torch_model = StyleTransferModel().to(device)
@@ -77,11 +79,11 @@ def create_onnx_model(torch_model_path):
     torch_model.eval()
     torch.onnx.export(torch_model,               # model being run
                   {
-                      'target' :torch.randn(1, 3, 128, 128, requires_grad=True).to(device), 
+                      'target' :torch.randn(1, 3, img_size, img_size, requires_grad=True).to(device), 
                       'source': torch.randn(1, 512, requires_grad=True).to(device),
                     #   'mask': torch.randn(1, 128, 128, requires_grad=True).to(device)
                   },                         # model input (or a tuple for multiple inputs)
-                  "test.onnx",   # where to save the model (can be a file or file-like object)
+                  output_path,   # where to save the model (can be a file or file-like object)
                   export_params=True,        # store the trained parameter weights inside the model file
                   opset_version=10,          # the ONNX version to export the model to
                   do_constant_folding=True,  # whether to execute constant folding for optimization
@@ -90,11 +92,26 @@ def create_onnx_model(torch_model_path):
                   dynamic_axes={'input' : {0 : 'batch_size'},    # variable length axes
                                 'output' : {0 : 'batch_size'}})
 
-    model = onnx.load('test.onnx')
-    printable_graph=onnx.helper.printable_graph(model.graph)
-    f = open("test.onnx.helper.printable_graph.txt", "w")
-    f.write(printable_graph)
-    f.close()
+    model = onnx.load(output_path)
+
+    if save_emap :
+        emap = np.load("emap.npy")
+
+        emap_tensor = onnx.helper.make_tensor(
+            name='emap',
+            data_type=onnx.TensorProto.FLOAT,
+            dims=[512, 512],
+            vals=emap
+        )
+        
+        model.graph.initializer.append(emap_tensor)
+        
+        onnx.save(model, output_path)
+
+    # printable_graph=onnx.helper.printable_graph(model.graph)
+    # f = open("test.onnx.helper.printable_graph.txt", "w")
+    # f.write(printable_graph)
+    # f.close()
 
 def masked_loss(output, face, mask, criterion, passMaskToCriterion=False):
     masked_output = output * mask
@@ -287,7 +304,7 @@ def f32tof16tof32(tensor_f32):
 
 #     return style_loss
 
-def train(datasetDir, dataset=None, num_epochs=1000, batch_size=1, learning_rate=0.0001, model_path=None, outputModelFolder='', saveModelEachSteps = 1, stopAtSteps=None, logDir=None, previewDir=None):
+def train(datasetDir, dataset=None, num_epochs=1000, batch_size=1, learning_rate=0.0001, model_path=None, outputModelFolder='', saveModelEachSteps = 1, stopAtSteps=None, logDir=None, previewDir=None, saveAs_onnx = False):
     # Get the device (GPU if available, else CPU)
     device = get_device()
     print(f"Using device: {device}")
@@ -624,7 +641,8 @@ def train(datasetDir, dataset=None, num_epochs=1000, batch_size=1, learning_rate
             if validation_identity_loss is not None:
                 val_writer.add_scalar("Loss/identity_loss", validation_identity_loss.item(), totalSteps)
 
-            # create_onnx_model(outputModelPath)
+            if saveAs_onnx :
+                create_onnx_model(outputModelPath)
 
         if stopAtSteps is not None and steps == stopAtSteps:
             exit()

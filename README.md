@@ -3,7 +3,7 @@
 ReSwapper aims to reproduce the implementation of inswapper. This repository provides code for training, inference, and includes pretrained weights.
 
 Here is the comparesion of the output of Inswapper and Reswapper.
-| Target | Source | Inswapper Output | Reswapper Output (Step 429500) |
+| Target | Source | Inswapper Output | Reswapper Output<br>(Step 429500) |
 |--------|--------|--------|--------|
 | ![image](example/1/target.jpg) |![image](example/1/source.jpg) | ![image](example/1/inswapperOutput.jpg) | ![image](example/1/reswapperOutput.jpg) |
 | ![image](example/2/target.jpg) |![image](example/2/source.jpg) | ![image](example/2/inswapperOutput.jpg) | ![image](example/2/reswapperOutput.jpg) |
@@ -76,7 +76,7 @@ Modify the code in train.py if needed. Then, execute:
 python train.py
 ```
 
-The model will be saved as "reswapper-\<total steps\>.pth".
+The model will be saved as "reswapper-\<total steps\>.pth". You can also save the model as ONNX using the create_onnx_model function. The ONNX model can then be used with the original INSwapper class.
 
 ## Notes
 - Do not stop the training too early.
@@ -92,8 +92,8 @@ python swap.py
 ## Pretrained Model
 
 - [reswapper-429500.pth](https://huggingface.co/somanchiu/reswapper/tree/main)
+- [reswapper-429500.onnx](https://huggingface.co/somanchiu/reswapper/tree/main)
 
 ## To Do
 - Create a 512-resolution model (alternative to inswapper_512)
 - Implement face paste-back functionality
-- Add emap to the onnx file
