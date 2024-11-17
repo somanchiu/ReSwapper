@@ -33,9 +33,6 @@ from StyleTransferModel_128 import StyleTransferModel
 inswapper_128_path = 'inswapper_128.onnx'
 img_size = 128
 
-logDir = None
-# logWriter = None
-
 providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
 
 sess = rt.InferenceSession(inswapper_128_path, providers=providers)
@@ -636,10 +633,11 @@ def train(datasetDir, dataset=None, num_epochs=1000, batch_size=1, learning_rate
             if previewDir is not None:
                 cv2.imwrite(f"{previewDir}/{totalSteps}.jpg", swapped_face)
 
-            val_writer.add_scalar("Loss/total", validation_total_loss.item(), totalSteps)
-            val_writer.add_scalar("Loss/content_loss", validation_content_loss.item(), totalSteps)
-            if validation_identity_loss is not None:
-                val_writer.add_scalar("Loss/identity_loss", validation_identity_loss.item(), totalSteps)
+            if logDir is not None:
+                val_writer.add_scalar("Loss/total", validation_total_loss.item(), totalSteps)
+                val_writer.add_scalar("Loss/content_loss", validation_content_loss.item(), totalSteps)
+                if validation_identity_loss is not None:
+                    val_writer.add_scalar("Loss/identity_loss", validation_identity_loss.item(), totalSteps)
 
             if saveAs_onnx :
                 create_onnx_model(outputModelPath)
