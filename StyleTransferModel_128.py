@@ -49,20 +49,6 @@ class StyleTransferModel(nn.Module):
             nn.Tanh()
         )
 
-        # Add a latent encoder for the cyclic consistency
-        self.latent_encoder = nn.Sequential(
-            nn.Conv2d(3, 64, kernel_size=7, stride=1, padding=3),
-            nn.LeakyReLU(0.2),
-            nn.Conv2d(64, 128, kernel_size=3, stride=2, padding=1),
-            nn.LeakyReLU(0.2),
-            nn.Conv2d(128, 256, kernel_size=3, stride=2, padding=1),
-            nn.LeakyReLU(0.2),
-            nn.Conv2d(256, 512, kernel_size=3, stride=2, padding=1),
-            nn.AdaptiveAvgPool2d((1, 1)),
-            nn.Flatten(),
-            nn.Linear(512, 512)
-        )
-
     def forward(self, target, source):
         # Encode target face
         target = F.pad(target, pad=(3, 3, 3, 3), mode='reflect')
@@ -98,13 +84,6 @@ class StyleTransferModel(nn.Module):
         output = self.decoderPart2(output)
         
         return (output + 1) / 2
-    
-    # def reverse_style_transfer(self, styled_image):
-    #     # Encode the styled image back to a latent vector
-    #     reconstructed_latent = self.latent_encoder(styled_image)
-    #     # Use the reconstructed latent to reverse the style transfer
-    #     reconstructed_target = self.forward(styled_image, reconstructed_latent)
-    #     return reconstructed_target, reconstructed_latent
 
 class StyleBlock(nn.Module):
     def __init__(self, in_channels, out_channels, blockIndex):

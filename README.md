@@ -83,6 +83,7 @@ The model will be saved as "reswapper-\<total steps\>.pth". You can also save th
 
 - I'm using an RTX3060 12GB for training. It takes around 12 hours for 50,000 steps.
 - The optimizer may need to be changed to SGD for the final training, as many articles show that SGD can result in lower loss.
+- To get inspiration for improving the model, you might want to review the commented code and unused functions in commit [c2a12e10021ecd1342b9ba50570a16b18f9634b9](https://github.com/somanchiu/ReSwapper/commit/c2a12e10021ecd1342b9ba50570a16b18f9634b9).
 
 ## Inference
 ```python
