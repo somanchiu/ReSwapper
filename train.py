@@ -88,9 +88,9 @@ def train(datasetDir, learning_rate=0.0001, model_path=None, outputModelFolder='
             input = {inswapperInferenceSession.get_inputs()[0].name: blob,
                     inswapperInferenceSession.get_inputs()[1].name: latent}
 
-            target_output = inswapperInferenceSession.run([inswapperInferenceSession.get_outputs()[0].name], input)[0]
+            expected_output = inswapperInferenceSession.run([inswapperInferenceSession.get_outputs()[0].name], input)[0]
         else:
-            target_output = blob
+            expected_output = blob
 
         latent_tensor = torch.from_numpy(latent).to(device)
         target_input_tensor = torch.from_numpy(blob).to(device)
@@ -98,9 +98,9 @@ def train(datasetDir, learning_rate=0.0001, model_path=None, outputModelFolder='
         optimizer.zero_grad()
         output = model(target_input_tensor, latent_tensor)
 
-        target_tensor = torch.from_numpy(target_output).to(device)
+        expected_output_tensor = torch.from_numpy(expected_output).to(device)
 
-        content_loss, identity_loss = style_loss_fn(output, target_tensor)
+        content_loss, identity_loss = style_loss_fn(output, expected_output_tensor)
 
         loss = content_loss
 
