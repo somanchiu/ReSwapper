@@ -1,15 +1,14 @@
 from datetime import datetime
 import os
 import random
-import onnx
 import torch
 import torch.optim as optim
 
 import Image
+import ModelFormat
 from StyleTransferLoss import StyleTransferLoss
 import onnxruntime as rt
 
-import numpy as np
 import cv2
 from insightface.data import get_image as ins_get_image
 from insightface.app import FaceAnalysis
@@ -31,46 +30,6 @@ faceAnalysis.prepare(ctx_id=0, det_size=(640, 640))
 def get_device():
     return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 style_loss_fn = StyleTransferLoss().to(get_device())
-
-def create_onnx_model(torch_model_path, save_emap=True):
-    output_path = torch_model_path.replace(".pth", ".onnx")
-
-    device = get_device()
-    # Initialize model with the pretrained weights
-    torch_model = StyleTransferModel().to(device)
-    torch_model.load_state_dict(torch.load(torch_model_path, map_location=device))
-
-    # set the model to inference mode
-    torch_model.eval()
-    torch.onnx.export(torch_model,               # model being run
-                  {
-                      'target' :torch.randn(1, 3, img_size, img_size, requires_grad=True).to(device), 
-                      'source': torch.randn(1, 512, requires_grad=True).to(device),
-                  },                         # model input (or a tuple for multiple inputs)
-                  output_path,   # where to save the model (can be a file or file-like object)
-                  export_params=True,        # store the trained parameter weights inside the model file
-                  opset_version=10,          # the ONNX version to export the model to
-                  do_constant_folding=True,  # whether to execute constant folding for optimization
-                  input_names = ['target', "source"],   # the model's input names
-                  output_names = ['output'], # the model's output names
-                  dynamic_axes={'input' : {0 : 'batch_size'},    # variable length axes
-                                'output' : {0 : 'batch_size'}})
-
-    model = onnx.load(output_path)
-
-    if save_emap :
-        emap = np.load("emap.npy")
-
-        emap_tensor = onnx.helper.make_tensor(
-            name='emap',
-            data_type=onnx.TensorProto.FLOAT,
-            dims=[512, 512],
-            vals=emap
-        )
-        
-        model.graph.initializer.append(emap_tensor)
-        
-        onnx.save(model, output_path)
 
 def train(datasetDir, learning_rate=0.0001, model_path=None, outputModelFolder='', saveModelEachSteps = 1, stopAtSteps=None, logDir=None, previewDir=None, saveAs_onnx = False):
     device = get_device()
@@ -186,7 +145,7 @@ def train(datasetDir, learning_rate=0.0001, model_path=None, outputModelFolder='
                     val_writer.add_scalar("Loss/identity_loss", validation_identity_loss.item(), totalSteps)
 
             if saveAs_onnx :
-                create_onnx_model(outputModelPath)
+                ModelFormat.save_as_onnx_model(outputModelPath)
 
         if stopAtSteps is not None and steps == stopAtSteps:
             exit()

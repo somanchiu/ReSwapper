@@ -76,7 +76,7 @@ Modify the code in train.py if needed. Then, execute:
 python train.py
 ```
 
-The model will be saved as "reswapper-\<total steps\>.pth". You can also save the model as ONNX using the create_onnx_model function. The ONNX model can then be used with the original INSwapper class.
+The model will be saved as "reswapper-\<total steps\>.pth". You can also save the model as ONNX using the ModelFormat.save_as_onnx_model function. The ONNX model can then be used with the original INSwapper class.
 
 ## Notes
 - Do not stop the training too early.
