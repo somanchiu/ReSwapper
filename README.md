@@ -78,6 +78,8 @@ python train.py
 
 The model will be saved as "reswapper-\<total steps\>.pth". You can also save the model as ONNX using the ModelFormat.save_as_onnx_model function. The ONNX model can then be used with the original INSwapper class.
 
+All losses will be logged into TensorBoard.
+
 ## Notes
 - Do not stop the training too early.
 
