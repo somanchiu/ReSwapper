@@ -42,7 +42,6 @@ class StyleTransferLoss(nn.Module):
         target_embedding = self.extract_face_latent(target_content)
 
         identity_loss = None
-        euclidean_distance = None
         
         if output_embedding is not None and target_embedding is not None:
             similarity = self.cosine_similarity(output_embedding, target_embedding)
@@ -50,4 +49,4 @@ class StyleTransferLoss(nn.Module):
             identity_loss = 1-((similarity + 1) / 2)
             identity_loss = identity_loss ** 2 * 10
 
-        return content_loss, identity_loss, euclidean_distance
+        return content_loss, identity_loss

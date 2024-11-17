@@ -100,15 +100,12 @@ def train(datasetDir, learning_rate=0.0001, model_path=None, outputModelFolder='
 
         target_tensor = torch.from_numpy(target_output).to(device)
 
-        content_loss, identity_loss, euclidean_distance = style_loss_fn(output, target_tensor)
+        content_loss, identity_loss = style_loss_fn(output, target_tensor)
 
         loss = content_loss
 
         if identity_loss is not None:
             loss +=identity_loss
-
-        if euclidean_distance is not None:
-            loss +=euclidean_distance
         
         loss.backward()
 
@@ -192,7 +189,7 @@ def validate(modelPath):
     model = load_model(modelPath)
     swapped_face, swapped_tensor= swap_face(model, test_target_face, test_l)
 
-    validation_content_loss, validation_identity_loss, _ = style_loss_fn(swapped_tensor, torch.from_numpy(test_inswapperOutput).to(get_device()))
+    validation_content_loss, validation_identity_loss = style_loss_fn(swapped_tensor, torch.from_numpy(test_inswapperOutput).to(get_device()))
 
     validation_total_loss = validation_content_loss
     if validation_identity_loss is not None:
