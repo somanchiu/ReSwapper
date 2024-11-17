@@ -776,6 +776,7 @@ def main():
     previewDir = "training/preview"
     datasetDir = "FFHQ"
 
+    os.makedirs(outputModelFolder, exist_ok=True)
     os.makedirs(previewDir, exist_ok=True)
 
     train(
