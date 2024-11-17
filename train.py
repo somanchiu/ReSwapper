@@ -22,7 +22,7 @@ img_size = 128
 
 providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
 
-sess = rt.InferenceSession(inswapper_128_path, providers=providers)
+inswapperInferenceSession = rt.InferenceSession(inswapper_128_path, providers=providers)
 
 faceAnalysis = FaceAnalysis(name='buffalo_l')
 faceAnalysis.prepare(ctx_id=0, det_size=(640, 640))
@@ -85,10 +85,10 @@ def train(datasetDir, learning_rate=0.0001, model_path=None, outputModelFolder='
             continue
 
         if targetFaceIndex != sourceFaceIndex:
-            input = {sess.get_inputs()[0].name: blob,
-                    sess.get_inputs()[1].name: latent}
+            input = {inswapperInferenceSession.get_inputs()[0].name: blob,
+                    inswapperInferenceSession.get_inputs()[1].name: latent}
 
-            target_output = sess.run([sess.get_outputs()[0].name], input)[0]
+            target_output = inswapperInferenceSession.run([inswapperInferenceSession.get_outputs()[0].name], input)[0]
         else:
             target_output = blob
 
@@ -180,10 +180,10 @@ test_target_face, _ = face_align.norm_crop2(test_img, test_faces[0].kps, img_siz
 test_target_face = Image.getBlob(test_target_face)
 test_l = Image.getLatent(test_faces[2])
 
-test_input = {sess.get_inputs()[0].name: test_target_face,
-        sess.get_inputs()[1].name: test_l}
+test_input = {inswapperInferenceSession.get_inputs()[0].name: test_target_face,
+        inswapperInferenceSession.get_inputs()[1].name: test_l}
 
-test_inswapperOutput = sess.run([sess.get_outputs()[0].name], test_input)[0]
+test_inswapperOutput = inswapperInferenceSession.run([inswapperInferenceSession.get_outputs()[0].name], test_input)[0]
 
 def validate(modelPath):
     model = load_model(modelPath)
