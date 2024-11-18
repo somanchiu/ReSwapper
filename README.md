@@ -3,11 +3,11 @@
 ReSwapper aims to reproduce the implementation of inswapper. This repository provides code for training, inference, and includes pretrained weights.
 
 Here is the comparesion of the output of Inswapper and Reswapper.
-| Target | Source | Inswapper Output | Reswapper Output<br>(Step 429500) |
-|--------|--------|--------|--------|
-| ![image](example/1/target.jpg) |![image](example/1/source.jpg) | ![image](example/1/inswapperOutput.jpg) | ![image](example/1/reswapperOutput.jpg) |
-| ![image](example/2/target.jpg) |![image](example/2/source.jpg) | ![image](example/2/inswapperOutput.jpg) | ![image](example/2/reswapperOutput.jpg) |
-| ![image](example/3/target.jpg) |![image](example/3/source.png) | ![image](example/3/inswapperOutput.jpg) | ![image](example/3/reswapperOutput.jpg) |
+| Target | Source | Inswapper Output | Reswapper Output<br>(Step 1019500) | Reswapper Output<br>(Step 429500) | 
+|--------|--------|--------|--------|--------|
+| ![image](example/1/target.jpg) |![image](example/1/source.jpg) | ![image](example/1/inswapperOutput.jpg) | ![image](example/1/reswapperOutput-1019500.jpg) | ![image](example/1/reswapperOutput-429500.jpg) |
+| ![image](example/2/target.jpg) |![image](example/2/source.jpg) | ![image](example/2/inswapperOutput.jpg) | ![image](example/2/reswapperOutput-1019500.jpg) | ![image](example/2/reswapperOutput-429500.jpg) |
+| ![image](example/3/target.jpg) |![image](example/3/source.png) | ![image](example/3/inswapperOutput.jpg) | ![image](example/3/reswapperOutput-1019500.jpg) | ![image](example/3/reswapperOutput-429500.jpg) |
 
 ## Installation
 
@@ -94,6 +94,8 @@ python swap.py
 
 ## Pretrained Model
 
+- [reswapper-1019500.pth](https://huggingface.co/somanchiu/reswapper/tree/main)
+- [reswapper-1019500.onnx](https://huggingface.co/somanchiu/reswapper/tree/main)
 - [reswapper-429500.pth](https://huggingface.co/somanchiu/reswapper/tree/main)
 - [reswapper-429500.onnx](https://huggingface.co/somanchiu/reswapper/tree/main)
 
