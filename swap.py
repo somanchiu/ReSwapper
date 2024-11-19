@@ -32,7 +32,7 @@ def load_model(model_path):
     model.eval()
     return model
 
-def swap_face(model, target_face, source_face_latent, mask):
+def swap_face(model, target_face, source_face_latent):
     device = get_device()
 
     target_tensor = torch.from_numpy(target_face).to(device)
@@ -45,6 +45,23 @@ def swap_face(model, target_face, source_face_latent, mask):
     
     return swapped_face, swapped_tensor
 
+def create_target(target_img_path, resolution):
+    target_image = cv2.imread(target_img_path)
+    target_face = faceAnalysis.get(target_image)[0]
+    test_target_face, _ = face_align.norm_crop2(target_image, target_face.kps, resolution)
+    target_face_blob = Image.getBlob(test_target_face, (resolution, resolution))
+
+    return target_face_blob
+
+def create_source(source_img_path):
+    source_image = cv2.imread(source_img_path)
+
+    source_face = faceAnalysis.get(source_image)[0]
+
+    source_latent = Image.getLatent(source_face)
+
+    return source_latent
+
 def main():
     args = parse_arguments()
     
@@ -56,19 +73,9 @@ def main():
 
     model = load_model(model_path)
 
-    target_image = cv2.imread(target)
-    source_image = cv2.imread(source)
-
-    target_face = faceAnalysis.get(target_image)[0]
-    # faceAnalysis.prepare(ctx_id=0, det_size=(128, 128))
-
-    source_face = faceAnalysis.get(source_image)[0]
-
-    test_target_face, _ = face_align.norm_crop2(target_image, target_face.kps, 128)
-
-    target_face_blob = Image.getBlob(test_target_face)
-    source_latent = Image.getLatent(source_face)
-    swapped_face, _ = swap_face(model, target_face_blob, source_latent, None)
+    target_face_blob = create_target(target, 128)
+    source_latent = create_source(source)
+    swapped_face, _ = swap_face(model, target_face_blob, source_latent)
 
     output_folder = os.path.dirname(output_path)
     os.makedirs(output_folder, exist_ok=True)
