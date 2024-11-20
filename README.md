@@ -36,14 +36,15 @@ printable_graph=onnx.helper.printable_graph(model.graph)
 ```
 
 ### Model inputs
-- target: [1, 3, 128, 128] shape, normalized to [-1, 1] range
-- source (latent): [1, 512] shape, the features of the source face
+- target: [1, 3, 128, 128] shape image in RGB format with face alignment, normalized to [-1, 1] range
+- source (latent): [1, 512] shape vector, the features of the source face
     - Calculation of latent, "emap" can be extracted from the original inswapper model.
         ```python
         latent = source_face.normed_embedding.reshape((1,-1))
         latent = np.dot(latent, emap)
         latent /= np.linalg.norm(latent)
         ```
+    - It can also be used to calculate the similarity between two faces using cosine similarity.
 
 ### Model output
 Model inswapper_128 not only changes facial features, but also body shape.
