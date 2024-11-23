@@ -21,11 +21,12 @@ def save_as_onnx_model(torch_model_path, save_emap=True, img_size = 128):
                   },                         # model input (or a tuple for multiple inputs)
                   output_path,   # where to save the model (can be a file or file-like object)
                   export_params=True,        # store the trained parameter weights inside the model file
-                  opset_version=10,          # the ONNX version to export the model to
+                  opset_version=11,          # the ONNX version to export the model to
                   do_constant_folding=True,  # whether to execute constant folding for optimization
                   input_names = ['target', "source"],   # the model's input names
                   output_names = ['output'], # the model's output names
-                  dynamic_axes={'input' : {0 : 'batch_size'},    # variable length axes
+                  dynamic_axes={'target' : {0 : 'batch_size'},    # variable length axes
+                                'source' : {0 : 'batch_size'},
                                 'output' : {0 : 'batch_size'}})
 
     model = onnx.load(output_path)
