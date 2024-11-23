@@ -48,10 +48,10 @@ def swap_face(model, target_face, source_face_latent):
 def create_target(target_img_path, resolution):
     target_image = cv2.imread(target_img_path)
     target_face = faceAnalysis.get(target_image)[0]
-    test_target_face, _ = face_align.norm_crop2(target_image, target_face.kps, resolution)
+    test_target_face, M = face_align.norm_crop2(target_image, target_face.kps, resolution)
     target_face_blob = Image.getBlob(test_target_face, (resolution, resolution))
 
-    return target_face_blob
+    return target_face_blob, M
 
 def create_source(source_img_path):
     source_image = cv2.imread(source_img_path)
@@ -62,6 +62,9 @@ def create_source(source_img_path):
 
     return source_latent
 
+def paste_back(swapped_face, target_image, M):
+    return Image.blend_swapped_image(swapped_face, target_image, M)
+
 def main():
     args = parse_arguments()
     
@@ -71,15 +74,19 @@ def main():
     output_path = args.outputPath
     model_path = args.modelPath
 
+    target_img = cv2.imread(target)
+
     model = load_model(model_path)
 
-    target_face_blob = create_target(target, 128)
+    target_face_blob, M = create_target(target, 128)
     source_latent = create_source(source)
     swapped_face, _ = swap_face(model, target_face_blob, source_latent)
 
+    merged_img = paste_back(swapped_face, target_img, M)
+
     output_folder = os.path.dirname(output_path)
     os.makedirs(output_folder, exist_ok=True)
-    cv2.imwrite(output_path, swapped_face)
+    cv2.imwrite(output_path, merged_img)
 
 if __name__ == "__main__":
     main()
