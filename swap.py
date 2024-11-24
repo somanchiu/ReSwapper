@@ -51,8 +51,8 @@ def create_target(target_image, resolution):
         target_image = cv2.imread(target_image)
 
     target_face = faceAnalysis.get(target_image)[0]
-    test_target_face, M = face_align.norm_crop2(target_image, target_face.kps, resolution)
-    target_face_blob = Image.getBlob(test_target_face, (resolution, resolution))
+    aligned_target_face, M = face_align.norm_crop2(target_image, target_face.kps, resolution)
+    target_face_blob = Image.getBlob(aligned_target_face, (resolution, resolution))
 
     return target_face_blob, M
 
