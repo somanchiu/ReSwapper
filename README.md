@@ -102,4 +102,3 @@ python swap.py
 
 ## To Do
 - Create a 512-resolution model (alternative to inswapper_512)
-- Implement face paste-back functionality
