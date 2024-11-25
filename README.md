@@ -27,7 +27,7 @@ pip install onnxruntime-gpu --force --extra-index-url https://aiinfra.pkgs.visua
 ## The details of inswapper
 
 ### Model architecture
-The inswapper model architecture can be visualized in [Netron](https://netron.app). You can compare with ReSwapper implementation to see architectural similarities
+The inswapper model architecture can be visualized in [Netron](https://netron.app). You can compare with ReSwapper implementation to see architectural similarities. Exporting the model with opset_version=10 makes it easier to compare the graph in Netron. However, it will cause issue #8.
 
 We can also use the following Python code to get more details:
 ```python
@@ -81,7 +81,7 @@ The model will be saved as "reswapper-\<total steps\>.pth". You can also save th
 
 All losses will be logged into TensorBoard.
 
-## Notes
+#### Notes
 - Do not stop the training too early.
 
 - I'm using an RTX3060 12GB for training. It takes around 12 hours for 50,000 steps.
@@ -99,6 +99,9 @@ python swap.py
 - [reswapper-1019500.onnx](https://huggingface.co/somanchiu/reswapper/tree/main)
 - [reswapper-429500.pth](https://huggingface.co/somanchiu/reswapper/tree/main)
 - [reswapper-429500.onnx](https://huggingface.co/somanchiu/reswapper/tree/main)
+
+### Notes
+If you downloaded the ONNX format model before 2024/11/25, please download the model again or export the model with opset_version=11. This is related to issue #8.
 
 ## To Do
 - Create a 512-resolution model (alternative to inswapper_512)
