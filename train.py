@@ -74,12 +74,8 @@ class TrainOptions:
 
         self.parser.add_argument("--Arc_path", type=str, default='arcface_model/arcface_checkpoint.tar', help="run ONNX model via TRT")
         self.parser.add_argument("--total_step", type=int, default=1000000, help='total training step')
-        self.parser.add_argument("--log_frep", type=int, default=200, help='frequence for printing log information')
         self.parser.add_argument("--sample_freq", type=int, default=1000, help='frequence for sampling')
         self.parser.add_argument("--model_freq", type=int, default=1000, help='frequence for saving the model')
-
-        
-
 
         self.isTrain = True
         
@@ -245,28 +241,23 @@ if __name__ == '__main__':
 
         ############## Display results and errors ##########
         ### print out errors
-        # Print out log info
-        if (step + 1) % opt.log_frep == 0:
-            # errors = {k: v.data.item() if not isinstance(v, int) else v for k, v in loss_dict.items()}
-            errors = {
-                "G_Loss":loss_Gmain.item(),
-                "G_ID":loss_G_ID.item(),
-                "G_Rec":loss_G_Rec.item(),
-                "G_feat_match":feat_match_loss.item(),
-                "D_fake":loss_Dgen.item(),
-                "D_real":loss_Dreal.item(),
-                "D_loss":loss_D.item()
-            }
-            if opt.use_tensorboard:
-                for tag, value in errors.items():
-                    logger.add_scalar(tag, value, step)
-            message = '( step: %d, ) ' % (step)
-            for k, v in errors.items():
-                message += '%s: %.3f ' % (k, v)
+        errors = {
+            "G_Loss":loss_Gmain.item(),
+            "G_ID":loss_G_ID.item(),
+            "G_Rec":loss_G_Rec.item(),
+            "G_feat_match":feat_match_loss.item(),
+            "D_fake":loss_Dgen.item(),
+            "D_real":loss_Dreal.item(),
+            "D_loss":loss_D.item()
+        }
+        if opt.use_tensorboard:
+            for tag, value in errors.items():
+                logger.add_scalar(tag, value, step)
+        lossesMessage = 'Step: %d: ' % (step + 1)
+        for k, v in errors.items():
+            lossesMessage += '%s: %.3f ' % (k, v)
 
-            print(message)
-            with open(log_name, "a") as log_file:
-                log_file.write('%s\n' % message)
+        print(lossesMessage)
 
         ### display output images
         if (step + 1) % opt.sample_freq == 0:
