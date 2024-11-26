@@ -88,7 +88,8 @@ class SwappingDataset(data.Dataset):
 def GetLoader(  dataset_roots,
                 batch_size=16,
                 dataloader_workers=8,
-                random_seed = 1234
+                random_seed = 1234,
+                resize_image_to = None
                 ):
     """Build and return a data loader."""
         
@@ -97,7 +98,10 @@ def GetLoader(  dataset_roots,
     random_seed         = random_seed
     
     c_transforms = []
-    
+
+    if resize_image_to:
+        c_transforms.append(T.Resize((resize_image_to, resize_image_to)))  # Add resize transform
+
     c_transforms.append(T.ToTensor())
     c_transforms = T.Compose(c_transforms)
 

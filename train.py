@@ -65,6 +65,7 @@ class TrainOptions:
         self.parser.add_argument('--beta1', type=float, default=0.0, help='momentum term of adam')
         self.parser.add_argument('--lr', type=float, default=0.0004, help='initial learning rate for adam')
         self.parser.add_argument('--Gdeep', type=str2bool, default='False')
+        self.parser.add_argument('--resize_image_to', type=int, default=None, help='resize the dataset images to a specific resolution')
 
         # for discriminators         
         self.parser.add_argument('--lambda_feat', type=float, default=10.0, help='weight for feature matching loss')
@@ -163,7 +164,7 @@ if __name__ == '__main__':
     imagenet_std    = torch.Tensor([0.229, 0.224, 0.225]).view(3,1,1)
     imagenet_mean   = torch.Tensor([0.485, 0.456, 0.406]).view(3,1,1)
 
-    train_loader    = GetLoader(opt.dataset,opt.batchSize,8,1234)
+    train_loader    = GetLoader(opt.dataset,opt.batchSize,8,1234, opt.resize_image_to)
 
     randindex = [i for i in range(opt.batchSize)]
     random.shuffle(randindex)
