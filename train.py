@@ -133,10 +133,7 @@ if __name__ == '__main__':
     os.environ['CUDA_VISIBLE_DEVICES'] = str(opt.gpu_ids)
     print("GPU used : ", str(opt.gpu_ids))
 
-    
     cudnn.benchmark = True
-
-    
 
     model = fsModel()
 
@@ -155,8 +152,6 @@ if __name__ == '__main__':
 
     optimizer_G, optimizer_D = model.optimizer_G, model.optimizer_D
 
-    loss_avg        = 0
-    refresh_count   = 0
     imagenet_std    = torch.Tensor([0.229, 0.224, 0.225]).view(3,1,1)
     imagenet_mean   = torch.Tensor([0.485, 0.456, 0.406]).view(3,1,1)
 
