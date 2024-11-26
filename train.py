@@ -1,224 +1,304 @@
-from datetime import datetime
+#!/usr/bin/env python3
+# -*- coding:utf-8 -*-
+#############################################################
+# File: train.py
+# Created Date: Monday December 27th 2021
+# Author: Chen Xuanhong
+# Email: chenxuanhongzju@outlook.com
+# Last Modified:  Friday, 22nd April 2022 10:49:26 am
+# Modified By: Chen Xuanhong
+# Copyright (c) 2021 Shanghai Jiao Tong University
+#############################################################
+
 import os
+import time
 import random
+import argparse
+import numpy as np
+
 import torch
-import torch.optim as optim
+import torch.nn.functional as F
+from torch.backends import cudnn
+import torch.utils.tensorboard as tensorboard
 
 import Image
-import ModelFormat
-from StyleTransferLoss import StyleTransferLoss
-import onnxruntime as rt
+from util import util
+from util.plot import plot_batch
 
-import cv2
-from insightface.data import get_image as ins_get_image
-from insightface.app import FaceAnalysis
-from insightface.utils import face_align
+from models.projected_model import fsModel
+from data.data_loader_Swapping import GetLoader
 
-from StyleTransferModel_128 import StyleTransferModel
-from torch.utils.tensorboard import SummaryWriter
+# To do
+# from insightface.app import FaceAnalysis
 
-inswapper_128_path = 'inswapper_128.onnx'
-img_size = 128
+# faceAnalysis = FaceAnalysis(name='buffalo_l', root='')
+# faceAnalysis.prepare(ctx_id=0, det_size=(640, 640))
 
-providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
+def str2bool(v):
+    return v.lower() in ('true')
 
-inswapperInferenceSession = rt.InferenceSession(inswapper_128_path, providers=providers)
-
-faceAnalysis = FaceAnalysis(name='buffalo_l')
-faceAnalysis.prepare(ctx_id=0, det_size=(640, 640))
-
-def get_device():
-    return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-style_loss_fn = StyleTransferLoss().to(get_device())
-
-def train(datasetDir, learning_rate=0.0001, model_path=None, outputModelFolder='', saveModelEachSteps = 1, stopAtSteps=None, logDir=None, previewDir=None, saveAs_onnx = False):
-    device = get_device()
-    print(f"Using device: {device}")
-
-    model = StyleTransferModel().to(device)
-
-    if model_path is not None:
-        model.load_state_dict(torch.load(model_path, map_location=device), strict=False)
-        print(f"Loaded model from {model_path}")
-
-        lastSteps = int(model_path.split('-')[-1].split('.')[0])
-        print(f"Resuming training from step {lastSteps}")
-    else:
-        lastSteps = 0
-
-    model.train()
-    model = model.to(device)
-
-    # Initialize optimizer
-    optimizer = optim.Adam(model.parameters(), lr=learning_rate)
-
-    # Initialize TensorBoard writer
-    if logDir is not None:
-        train_writer = SummaryWriter(os.path.join(logDir, "training"))
-        val_writer = SummaryWriter(os.path.join(logDir, "validation"))
-
-    steps = 0
-
-    image = os.listdir(datasetDir)
-
-    # Training loop
-    while True:
-        start_time = datetime.now()
-
-        targetFaceIndex = random.randint(0, len(image)-1)
-        sourceFaceIndex = random.randint(0, len(image)-1)
-
-        target_img=cv2.imread(f"{datasetDir}/{image[targetFaceIndex]}")
-        faces = faceAnalysis.get(target_img)
-
-        if targetFaceIndex != sourceFaceIndex:
-            source_img = cv2.imread(f"{datasetDir}/{image[sourceFaceIndex]}")
-            faces2 = faceAnalysis.get(source_img)
-        else:
-            faces2 = faces
-
-        if len(faces) > 0 and len(faces2) > 0:
-            new_aligned_face, _ = face_align.norm_crop2(target_img, faces[0].kps, img_size)
-            blob = Image.getBlob(new_aligned_face)
-            latent = Image.getLatent(faces2[0])
-        else:
-            continue
-
-        if targetFaceIndex != sourceFaceIndex:
-            input = {inswapperInferenceSession.get_inputs()[0].name: blob,
-                    inswapperInferenceSession.get_inputs()[1].name: latent}
-
-            expected_output = inswapperInferenceSession.run([inswapperInferenceSession.get_outputs()[0].name], input)[0]
-        else:
-            expected_output = blob
-
-        latent_tensor = torch.from_numpy(latent).to(device)
-        target_input_tensor = torch.from_numpy(blob).to(device)
-
-        optimizer.zero_grad()
-        output = model(target_input_tensor, latent_tensor)
-
-        expected_output_tensor = torch.from_numpy(expected_output).to(device)
-
-        content_loss, identity_loss = style_loss_fn(output, expected_output_tensor)
-
-        loss = content_loss
-
-        if identity_loss is not None:
-            loss +=identity_loss
+class TrainOptions:
+    def __init__(self):
+        self.parser = argparse.ArgumentParser()
+        self.initialized = False
         
-        loss.backward()
+    def initialize(self):
+        self.parser.add_argument('--name', type=str, default='simswap', help='name of the experiment. It decides where to store samples and models')
+        self.parser.add_argument('--gpu_ids', default='0')
+        self.parser.add_argument('--checkpoints_dir', type=str, default='./checkpoints', help='models are saved here')
+        self.parser.add_argument('--isTrain', type=str2bool, default='True')
 
-        optimizer.step()
+        # input/output sizes       
+        self.parser.add_argument('--batchSize', type=int, default=4, help='input batch size')       
 
-        steps += 1
-        totalSteps = steps + lastSteps
+        # for displays
+        self.parser.add_argument('--use_tensorboard', type=str2bool, default='False')
 
-        if logDir is not None:
-            train_writer.add_scalar("Loss/total", loss.item(), totalSteps)
-            train_writer.add_scalar("Loss/content_loss", content_loss.item(), totalSteps)
+        # for training
+        self.parser.add_argument('--dataset', type=str, default="/path/to/VGGFace2", help='path to the face swapping dataset')
+        self.parser.add_argument('--continue_train', type=str2bool, default='False', help='continue training: load the latest model')
+        self.parser.add_argument('--load_pretrain', type=str, default='./checkpoints/simswap224_test', help='load the pretrained model from the specified location')
+        self.parser.add_argument('--which_epoch', type=str, default='10000', help='which epoch to load? set to latest to use latest cached model')
+        self.parser.add_argument('--phase', type=str, default='train', help='train, val, test, etc')
+        self.parser.add_argument('--niter', type=int, default=10000, help='# of iter at starting learning rate')
+        self.parser.add_argument('--niter_decay', type=int, default=10000, help='# of iter to linearly decay learning rate to zero')
+        self.parser.add_argument('--beta1', type=float, default=0.0, help='momentum term of adam')
+        self.parser.add_argument('--lr', type=float, default=0.0004, help='initial learning rate for adam')
+        self.parser.add_argument('--Gdeep', type=str2bool, default='False')
 
-            if identity_loss is not None:
-                train_writer.add_scalar("Loss/identity_loss", identity_loss.item(), totalSteps)
+        # for discriminators         
+        self.parser.add_argument('--lambda_feat', type=float, default=10.0, help='weight for feature matching loss')
+        self.parser.add_argument('--lambda_id', type=float, default=30.0, help='weight for id loss')
+        self.parser.add_argument('--lambda_rec', type=float, default=10.0, help='weight for reconstruction loss') 
 
-        elapsed_time = datetime.now() - start_time
+        self.parser.add_argument("--Arc_path", type=str, default='arcface_model/arcface_checkpoint.tar', help="run ONNX model via TRT")
+        self.parser.add_argument("--total_step", type=int, default=1000000, help='total training step')
+        self.parser.add_argument("--log_frep", type=int, default=200, help='frequence for printing log information')
+        self.parser.add_argument("--sample_freq", type=int, default=1000, help='frequence for sampling')
+        self.parser.add_argument("--model_freq", type=int, default=1000, help='frequence for saving the model')
 
-        print(f"Total Steps: {totalSteps}, Step: {steps}, Loss: {loss.item():.4f}, Elapsed time: {elapsed_time}")
+        
 
-        if steps % saveModelEachSteps == 0:
-            outputModelPath = f"reswapper-{totalSteps}.pth"
-            if outputModelFolder != '':
-                outputModelPath = f"{outputModelFolder}/{outputModelPath}"
-            saveModel(model, outputModelPath)
 
-            validation_total_loss, validation_content_loss, validation_identity_loss, swapped_face = validate(outputModelPath)
-            if previewDir is not None:
-                cv2.imwrite(f"{previewDir}/{totalSteps}.jpg", swapped_face)
+        self.isTrain = True
+        
+    def parse(self, save=True):
+        if not self.initialized:
+            self.initialize()
+        self.opt = self.parser.parse_args()
+        self.opt.isTrain = self.isTrain   # train or test
 
-            if logDir is not None:
-                val_writer.add_scalar("Loss/total", validation_total_loss.item(), totalSteps)
-                val_writer.add_scalar("Loss/content_loss", validation_content_loss.item(), totalSteps)
-                if validation_identity_loss is not None:
-                    val_writer.add_scalar("Loss/identity_loss", validation_identity_loss.item(), totalSteps)
+        args = vars(self.opt)
 
-            if saveAs_onnx :
-                ModelFormat.save_as_onnx_model(outputModelPath)
+        print('------------ Options -------------')
+        for k, v in sorted(args.items()):
+            print('%s: %s' % (str(k), str(v)))
+        print('-------------- End ----------------')
 
-        if stopAtSteps is not None and steps == stopAtSteps:
-            exit()
+        # save to the disk
+        if self.opt.isTrain:
+            expr_dir = os.path.join(self.opt.checkpoints_dir, self.opt.name)
+            util.mkdirs(expr_dir)
+            if save and not self.opt.continue_train:
+                file_name = os.path.join(expr_dir, 'opt.txt')
+                with open(file_name, 'wt') as opt_file:
+                    opt_file.write('------------ Options -------------\n')
+                    for k, v in sorted(args.items()):
+                        opt_file.write('%s: %s\n' % (str(k), str(v)))
+                    opt_file.write('-------------- End ----------------\n')
+        return self.opt
 
-def saveModel(model, outputModelPath):
-    torch.save(model.state_dict(), outputModelPath)
 
-def load_model(model_path):
-    device = get_device()
-    model = StyleTransferModel().to(device)
-    model.load_state_dict(torch.load(model_path, map_location=device), strict=False)
+if __name__ == '__main__':
 
-    model.eval()
-    return model
+    opt         = TrainOptions().parse()
+    iter_path   = os.path.join(opt.checkpoints_dir, opt.name, 'iter.txt')
 
-def swap_face(model, target_face, source_face_latent):
-    device = get_device()
+    sample_path = os.path.join(opt.checkpoints_dir, opt.name, 'samples')
 
-    target_tensor = torch.from_numpy(target_face).to(device)
-    source_tensor = torch.from_numpy(source_face_latent).to(device)
-
-    with torch.no_grad():
-        swapped_tensor = model(target_tensor, source_tensor)
-
-    swapped_face = Image.postprocess_face(swapped_tensor)
+    if not os.path.exists(sample_path):
+        os.makedirs(sample_path)
     
-    return swapped_face, swapped_tensor
+    log_path = os.path.join(opt.checkpoints_dir, opt.name, 'summary')
 
-# test image
-test_img = ins_get_image('t1')
+    if not os.path.exists(log_path):
+        os.makedirs(log_path)
 
-test_faces = faceAnalysis.get(test_img)
-test_faces = sorted(test_faces, key = lambda x : x.bbox[0])
-test_target_face, _ = face_align.norm_crop2(test_img, test_faces[0].kps, img_size)
-test_target_face = Image.getBlob(test_target_face)
-test_l = Image.getLatent(test_faces[2])
+    if opt.continue_train:
+        try:
+            start_epoch, epoch_iter = np.loadtxt(iter_path , delimiter=',', dtype=int)
+        except:
+            start_epoch, epoch_iter = 1, 0
+        print('Resuming from epoch %d at iteration %d' % (start_epoch, epoch_iter))        
+    else:    
+        start_epoch, epoch_iter = 1, 0
 
-test_input = {inswapperInferenceSession.get_inputs()[0].name: test_target_face,
-        inswapperInferenceSession.get_inputs()[1].name: test_l}
+    os.environ['CUDA_VISIBLE_DEVICES'] = str(opt.gpu_ids)
+    print("GPU used : ", str(opt.gpu_ids))
 
-test_inswapperOutput = inswapperInferenceSession.run([inswapperInferenceSession.get_outputs()[0].name], test_input)[0]
+    
+    cudnn.benchmark = True
 
-def validate(modelPath):
-    model = load_model(modelPath)
-    swapped_face, swapped_tensor= swap_face(model, test_target_face, test_l)
+    
 
-    validation_content_loss, validation_identity_loss = style_loss_fn(swapped_tensor, torch.from_numpy(test_inswapperOutput).to(get_device()))
+    model = fsModel()
 
-    validation_total_loss = validation_content_loss
-    if validation_identity_loss is not None:
-        validation_total_loss += validation_identity_loss
+    model.initialize(opt)
 
-    return validation_total_loss, validation_content_loss, validation_identity_loss, swapped_face
+    #####################################################
+    if opt.use_tensorboard:
+        tensorboard_writer  = tensorboard.SummaryWriter(log_path)
+        logger              = tensorboard_writer
+        
+    log_name = os.path.join(opt.checkpoints_dir, opt.name, 'loss_log.txt')
 
-def main():
-    outputModelFolder = "model"
-    modelPath = None
-    # modelPath = f"{outputModelFolder}/reswapper-<step>.pth"
+    with open(log_name, "a") as log_file:
+        now = time.strftime("%c")
+        log_file.write('================ Training Loss (%s) ================\n' % now)
 
-    logDir = "training/log"
-    previewDir = "training/preview"
-    datasetDir = "FFHQ"
+    optimizer_G, optimizer_D = model.optimizer_G, model.optimizer_D
 
-    os.makedirs(outputModelFolder, exist_ok=True)
-    os.makedirs(previewDir, exist_ok=True)
+    loss_avg        = 0
+    refresh_count   = 0
+    imagenet_std    = torch.Tensor([0.229, 0.224, 0.225]).view(3,1,1)
+    imagenet_mean   = torch.Tensor([0.485, 0.456, 0.406]).view(3,1,1)
 
-    train(
-        datasetDir=datasetDir,
-        model_path=modelPath,
-        learning_rate=0.0001,
+    train_loader    = GetLoader(opt.dataset,opt.batchSize,8,1234)
 
-        outputModelFolder=outputModelFolder,
-        saveModelEachSteps = 1000,
-        stopAtSteps = 70000,
-        logDir=f"{logDir}/{datetime.now().strftime('%Y%m%d %H%M%S')}",
-        previewDir=previewDir)
+    randindex = [i for i in range(opt.batchSize)]
+    random.shuffle(randindex)
+
+    if not opt.continue_train:
+        start   = 0
+    else:
+        start   = int(opt.which_epoch)
+    total_step  = opt.total_step
+    import datetime
+    print("Start to train at %s"%(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
+    
+    from util.logo_class import logo_class
+    logo_class.print_start_training()
+    model.netD.feature_network.requires_grad_(False)
+
+    # Training Cycle
+    for step in range(start, total_step):
+        model.netG.train()
+        for interval in range(2):
+            random.shuffle(randindex)
+            src_image1, src_image2  = train_loader.next()
+            
+            if step%2 == 0:
+                img_id = src_image2
+            else:
+                img_id = src_image2[randindex]
+
+            # SimSwap code Start
+            img_id_112      = F.interpolate(img_id,size=(112,112), mode='bicubic')
+            latent_id       = model.netArc(img_id_112)
+            latent_id       = F.normalize(latent_id, p=2, dim=1)
+            # SimSwap code End
+
+            # To Do
+            # source_face = faceAnalysis.get(Image.postprocess_face(img_id))[0]
+            # latent_id = Image.getLatent(source_face)
+
+            if interval:
+                
+                img_fake        = model.netG(src_image1, latent_id)
+                gen_logits,_    = model.netD(img_fake.detach(), None)
+                loss_Dgen       = (F.relu(torch.ones_like(gen_logits) + gen_logits)).mean()
+
+                real_logits,_   = model.netD(src_image2,None)
+                loss_Dreal      = (F.relu(torch.ones_like(real_logits) - real_logits)).mean()
+
+                loss_D          = loss_Dgen + loss_Dreal
+                optimizer_D.zero_grad()
+                loss_D.backward()
+                optimizer_D.step()
+            else:
+                
+                # model.netD.requires_grad_(True)
+                img_fake        = model.netG(src_image1, latent_id)
+                # G loss
+                gen_logits,feat = model.netD(img_fake, None)
+                
+                loss_Gmain      = (-gen_logits).mean()
+                img_fake_down   = F.interpolate(img_fake, size=(112,112), mode='bicubic')
+                latent_fake     = model.netArc(img_fake_down)
+                latent_fake     = F.normalize(latent_fake, p=2, dim=1)
+                loss_G_ID       = (1 - model.cosin_metric(latent_fake, latent_id)).mean()
+                real_feat       = model.netD.get_feature(src_image1)
+                feat_match_loss = model.criterionFeat(feat["3"],real_feat["3"]) 
+                loss_G          = loss_Gmain + loss_G_ID * opt.lambda_id + feat_match_loss * opt.lambda_feat
+                
+
+                if step%2 == 0:
+                    #G_Rec
+                    loss_G_Rec  = model.criterionRec(img_fake, src_image1) * opt.lambda_rec
+                    loss_G      += loss_G_Rec
+
+                optimizer_G.zero_grad()
+                loss_G.backward()
+                optimizer_G.step()
+                
+
+        ############## Display results and errors ##########
+        ### print out errors
+        # Print out log info
+        if (step + 1) % opt.log_frep == 0:
+            # errors = {k: v.data.item() if not isinstance(v, int) else v for k, v in loss_dict.items()}
+            errors = {
+                "G_Loss":loss_Gmain.item(),
+                "G_ID":loss_G_ID.item(),
+                "G_Rec":loss_G_Rec.item(),
+                "G_feat_match":feat_match_loss.item(),
+                "D_fake":loss_Dgen.item(),
+                "D_real":loss_Dreal.item(),
+                "D_loss":loss_D.item()
+            }
+            if opt.use_tensorboard:
+                for tag, value in errors.items():
+                    logger.add_scalar(tag, value, step)
+            message = '( step: %d, ) ' % (step)
+            for k, v in errors.items():
+                message += '%s: %.3f ' % (k, v)
+
+            print(message)
+            with open(log_name, "a") as log_file:
+                log_file.write('%s\n' % message)
+
+        ### display output images
+        if (step + 1) % opt.sample_freq == 0:
+            model.netG.eval()
+            with torch.no_grad():
+                imgs        = list()
+                zero_img    = (torch.zeros_like(src_image1[0,...]))
+                imgs.append(zero_img.cpu().numpy())
+                save_img    = ((src_image1.cpu())* imagenet_std + imagenet_mean).numpy()
+                for r in range(opt.batchSize):
+                    imgs.append(save_img[r,...])
+                arcface_112     = F.interpolate(src_image2,size=(112,112), mode='bicubic')
+                id_vector_src1  = model.netArc(arcface_112)
+                id_vector_src1  = F.normalize(id_vector_src1, p=2, dim=1)
+
+                for i in range(opt.batchSize):
                     
-if __name__ == "__main__":
-    main()
+                    imgs.append(save_img[i,...])
+                    image_infer = src_image1[i, ...].repeat(opt.batchSize, 1, 1, 1)
+                    img_fake    = model.netG(image_infer, id_vector_src1).cpu()
+                    
+                    img_fake    = img_fake * imagenet_std
+                    img_fake    = img_fake + imagenet_mean
+                    img_fake    = img_fake.numpy()
+                    for j in range(opt.batchSize):
+                        imgs.append(img_fake[j,...])
+                print("Save test data")
+                imgs = np.stack(imgs, axis = 0).transpose(0,2,3,1)
+                plot_batch(imgs, os.path.join(sample_path, 'step_'+str(step+1)+'.jpg'))
+
+        ### save latest model
+        if (step+1) % opt.model_freq==0:
+            print('saving the latest model (steps %d)' % (step+1))
+            model.save(step+1)            
+            np.savetxt(iter_path, (step+1, total_step), delimiter=',', fmt='%d')
+    # wandb.finish()
