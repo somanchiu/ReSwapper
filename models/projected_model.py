@@ -43,15 +43,6 @@ class fsModel(BaseModel):
         self.netG = Generator_Adain_Upsample()
         self.netG.cuda()
 
-        # SimSwap Id network Start
-        netArc_checkpoint = opt.Arc_path
-        netArc_checkpoint = torch.load(netArc_checkpoint, map_location=torch.device("cpu"))
-        self.netArc = netArc_checkpoint
-        self.netArc = self.netArc.cuda()
-        self.netArc.eval()
-        self.netArc.requires_grad_(False)
-        # SimSwap Id network End
-
         if not self.isTrain:
             pretrained_path =  opt.checkpoints_dir
             self.load_network(self.netG, 'G', opt.which_epoch, pretrained_path)

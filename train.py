@@ -14,6 +14,7 @@ import os
 import time
 import random
 import argparse
+import cv2
 import numpy as np
 
 import torch
@@ -26,13 +27,29 @@ from util import util
 from util.plot import plot_batch
 
 from models.projected_model import fsModel
-from data.data_loader_Swapping import GetLoader
 
-# To do
-# from insightface.app import FaceAnalysis
+# To do: clean code
+from insightface.app import FaceAnalysis
+import face_align
 
-# faceAnalysis = FaceAnalysis(name='buffalo_l', root='')
-# faceAnalysis.prepare(ctx_id=0, det_size=(640, 640))
+faceAnalysis = FaceAnalysis(name='buffalo_l', root='')
+faceAnalysis.prepare(ctx_id=0, det_size=(512, 512))
+
+faceAnalysis_384 = FaceAnalysis(name='buffalo_l', root='')
+faceAnalysis_384.prepare(ctx_id=0, det_size=(384, 384))
+
+faceAnalysis_256 = FaceAnalysis(name='buffalo_l', root='')
+faceAnalysis_256.prepare(ctx_id=0, det_size=(256, 256))
+
+faceAnalysis_128 = FaceAnalysis(name='buffalo_l', root='')
+faceAnalysis_128.prepare(ctx_id=0, det_size=(128, 128))
+
+faceAnalysisKV = {
+    '512': faceAnalysis,
+    '384': faceAnalysis_384,
+    '256': faceAnalysis_256,
+    '128': faceAnalysis_128,
+}
 
 def str2bool(v):
     return v.lower() in ('true')
@@ -66,7 +83,7 @@ class TrainOptions:
         self.parser.add_argument('--beta1', type=float, default=0.0, help='momentum term of adam')
         self.parser.add_argument('--lr', type=float, default=0.0004, help='initial learning rate for adam')
         self.parser.add_argument('--Gdeep', type=str2bool, default='False')
-        self.parser.add_argument('--resize_image_to', type=int, default=None, help='resize the dataset images to a specific resolution')
+        self.parser.add_argument('--resize_image_to', type=int, default=512, help='resize the dataset images to a specific resolution')
 
         # for discriminators         
         self.parser.add_argument('--lambda_feat', type=float, default=10.0, help='weight for feature matching loss')
@@ -105,7 +122,9 @@ class TrainOptions:
                         opt_file.write('%s: %s\n' % (str(k), str(v)))
                     opt_file.write('-------------- End ----------------\n')
         return self.opt
-
+    
+def get_device():
+    return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 if __name__ == '__main__':
 
@@ -153,19 +172,30 @@ if __name__ == '__main__':
 
     optimizer_G, optimizer_D = model.optimizer_G, model.optimizer_D
 
-    imagenet_std    = torch.Tensor([0.229, 0.224, 0.225]).view(3,1,1)
-    imagenet_mean   = torch.Tensor([0.485, 0.456, 0.406]).view(3,1,1)
-
-    train_loader    = GetLoader(opt.dataset,opt.batchSize,8,1234, opt.resize_image_to)
-
-    randindex = [i for i in range(opt.batchSize)]
-    random.shuffle(randindex)
-
     if not opt.continue_train:
         start   = 0
     else:
         start   = int(opt.which_epoch)
     total_step  = opt.total_step
+
+    #prepare validation image
+    validation_img = cv2.imread('validationImage/t1.jpg')
+    validation_faces = faceAnalysis.get(validation_img)
+    validation_faces = sorted(validation_faces, key = lambda x : x.bbox[0])
+    validation_target_face_256, _ = face_align.norm_crop2(validation_img, validation_faces[0].kps, 256)
+    validation_target_face_256 = Image.getBlob(validation_target_face_256, (256, 256))
+    validation_target_face_128, _ = face_align.norm_crop2(validation_img, validation_faces[0].kps, 128)
+    validation_target_face_128 = Image.getBlob(validation_target_face_128, (128, 128))
+    validation_source_latent = Image.getLatent(validation_faces[2])
+    validation_target_latent = Image.getLatent(validation_faces[0])
+
+    validation_target_face_256 = torch.from_numpy(validation_target_face_256).to(get_device())
+    validation_target_face_128 = torch.from_numpy(validation_target_face_128).to(get_device())
+
+    validation_target_latent = torch.from_numpy(validation_target_latent).to(get_device())
+    validation_source_latent = torch.from_numpy(validation_source_latent).to(get_device())
+    #
+
     import datetime
     print("Start to train at %s"%(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
     
@@ -173,27 +203,40 @@ if __name__ == '__main__':
     logo_class.print_start_training()
     model.netD.feature_network.requires_grad_(False)
 
+    image = os.listdir(opt.dataset)
+
+    opt.resize_image_to = 128
+
     # Training Cycle
     for step in range(start, total_step):
         model.netG.train()
         for interval in range(2):
-            random.shuffle(randindex)
-            src_image1, src_image2  = train_loader.next()
+            sourceFaceIndex1 = random.randint(0, len(image)-1)
+            sourceFaceIndex2 = random.randint(0, len(image)-1)
+            src_image1 = cv2.imread(f"{opt.dataset}/{image[sourceFaceIndex1]}")
+            src_image2 = cv2.imread(f"{opt.dataset}/{image[sourceFaceIndex2]}")
             
-            if step%2 == 0:
-                img_id = src_image2
-            else:
-                img_id = src_image2[randindex]
+            img_id = src_image2
 
-            # SimSwap code Start
-            img_id_112      = F.interpolate(img_id,size=(112,112), mode='bicubic')
-            latent_id       = model.netArc(img_id_112)
-            latent_id       = F.normalize(latent_id, p=2, dim=1)
-            # SimSwap code End
+            targetFaceInfo = faceAnalysis.get(src_image1)
+            sourceFaceInfo = faceAnalysis.get(img_id)
 
-            # To Do
-            # source_face = faceAnalysis.get(Image.postprocess_face(img_id))[0]
-            # latent_id = Image.getLatent(source_face)
+            if len(targetFaceInfo) == 0 or len(sourceFaceInfo) == 0: continue
+
+            target_face = targetFaceInfo[0]
+            source_face = sourceFaceInfo[0]
+
+            aligned_target_face, M = face_align.norm_crop2(src_image1, target_face.kps, opt.resize_image_to)
+            target_face_blob = Image.getBlob(aligned_target_face, (opt.resize_image_to, opt.resize_image_to))
+
+            aligned_id_face, M = face_align.norm_crop2(img_id, source_face.kps, opt.resize_image_to)
+            id_face_blob = Image.getBlob(aligned_id_face, (opt.resize_image_to, opt.resize_image_to))
+
+            latent_id = Image.getLatent(source_face)
+            latent_id = torch.from_numpy(latent_id).to(get_device())
+
+            src_image1 = torch.from_numpy(target_face_blob).to(get_device())
+            src_image2 = torch.from_numpy(id_face_blob).to(get_device())
 
             if interval:
                 
@@ -216,9 +259,12 @@ if __name__ == '__main__':
                 gen_logits,feat = model.netD(img_fake, None)
                 
                 loss_Gmain      = (-gen_logits).mean()
-                img_fake_down   = F.interpolate(img_fake, size=(112,112), mode='bicubic')
-                latent_fake     = model.netArc(img_fake_down)
-                latent_fake     = F.normalize(latent_fake, p=2, dim=1)
+
+                img_fake_img = Image.postprocess_face(img_fake)
+                fackFaceInfo = faceAnalysisKV[f'{opt.resize_image_to}'].get(img_fake_img)
+
+                if len(fackFaceInfo) == 0: continue
+                latent_fake = torch.from_numpy(Image.getLatent(fackFaceInfo[0])).to(get_device())
                 loss_G_ID       = (1 - model.cosin_metric(latent_fake, latent_id)).mean()
                 real_feat       = model.netD.get_feature(src_image1)
                 feat_match_loss = model.criterionFeat(feat["3"],real_feat["3"]) 
@@ -259,34 +305,27 @@ if __name__ == '__main__':
         if (step + 1) % opt.sample_freq == 0:
             model.netG.eval()
             with torch.no_grad():
-                imgs        = list()
-                zero_img    = (torch.zeros_like(src_image1[0,...]))
-                imgs.append(zero_img.cpu().numpy())
-                save_img    = ((src_image1.cpu())* imagenet_std + imagenet_mean).numpy()
-                for r in range(opt.batchSize):
-                    imgs.append(save_img[r,...])
-                arcface_112     = F.interpolate(src_image2,size=(112,112), mode='bicubic')
-                id_vector_src1  = model.netArc(arcface_112)
-                id_vector_src1  = F.normalize(id_vector_src1, p=2, dim=1)
+                output_128    = model.netG(validation_target_face_128, validation_source_latent)
 
-                for i in range(opt.batchSize):
-                    
-                    imgs.append(save_img[i,...])
-                    image_infer = src_image1[i, ...].repeat(opt.batchSize, 1, 1, 1)
-                    img_fake    = model.netG(image_infer, id_vector_src1).cpu()
-                    
-                    img_fake    = img_fake * imagenet_std
-                    img_fake    = img_fake + imagenet_mean
-                    img_fake    = img_fake.numpy()
-                    for j in range(opt.batchSize):
-                        imgs.append(img_fake[j,...])
-                print("Save test data")
-                imgs = np.stack(imgs, axis = 0).transpose(0,2,3,1)
-                plot_batch(imgs, os.path.join(sample_path, 'step_'+str(step+1)+'.jpg'))
+                output_image = Image.postprocess_face(output_128)
+                cv2.imwrite(os.path.join(sample_path, str(step+1)+'_128.jpg'), output_image)
+                
+                output_256    = model.netG(validation_target_face_256, validation_source_latent)
+
+                output_image = Image.postprocess_face(output_256)
+                cv2.imwrite(os.path.join(sample_path, str(step+1)+'_256.jpg'), output_image)
+                # To do
+                # plot_batch(imgs, os.path.join(sample_path, 'step_'+str(step+1)+'.jpg'))
+
+                print("Save preview")
 
         ### save latest model
         if (step+1) % opt.model_freq==0:
             print('saving the latest model (steps %d)' % (step+1))
             model.save(step+1)            
             np.savetxt(iter_path, (step+1, total_step), delimiter=',', fmt='%d')
+
+        opt.resize_image_to += 128
+        if opt.resize_image_to > 512:
+            opt.resize_image_to = 128
     # wandb.finish()
