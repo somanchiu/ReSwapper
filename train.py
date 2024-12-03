@@ -216,7 +216,10 @@ if __name__ == '__main__':
             src_image1 = cv2.imread(f"{opt.dataset}/{image[sourceFaceIndex1]}")
             src_image2 = cv2.imread(f"{opt.dataset}/{image[sourceFaceIndex2]}")
             
-            img_id = src_image2
+            if step%2 == 0:
+                img_id = src_image1
+            else:
+                img_id = src_image2
 
             targetFaceInfo = faceAnalysis.get(src_image1)
             sourceFaceInfo = faceAnalysis.get(img_id)
@@ -272,7 +275,7 @@ if __name__ == '__main__':
                 
 
                 if step%2 == 0:
-                    #G_Rec
+                    #G_Rec, set this term to 0 if the source and target faces are from different identities
                     loss_G_Rec  = model.criterionRec(img_fake, src_image1) * opt.lambda_rec
                     loss_G      += loss_G_Rec
 
