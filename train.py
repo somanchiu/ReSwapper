@@ -24,7 +24,7 @@ import torch.utils.tensorboard as tensorboard
 
 import Image
 from util import util
-from util.plot import plot_batch
+# from util.plot import plot_batch
 
 from models.projected_model import fsModel
 
@@ -143,15 +143,6 @@ if __name__ == '__main__':
     if not os.path.exists(log_path):
         os.makedirs(log_path)
 
-    if opt.continue_train:
-        try:
-            start_epoch, epoch_iter = np.loadtxt(iter_path , delimiter=',', dtype=int)
-        except:
-            start_epoch, epoch_iter = 1, 0
-        print('Resuming from epoch %d at iteration %d' % (start_epoch, epoch_iter))        
-    else:    
-        start_epoch, epoch_iter = 1, 0
-
     os.environ['CUDA_VISIBLE_DEVICES'] = str(opt.gpu_ids)
     print("GPU used : ", str(opt.gpu_ids))
 
@@ -178,6 +169,8 @@ if __name__ == '__main__':
         start   = 0
     else:
         start   = int(opt.which_epoch)
+        print('Resuming from epoch %d' % (start))        
+
     total_step  = opt.total_step
 
     #prepare validation image
