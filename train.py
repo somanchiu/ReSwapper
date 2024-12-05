@@ -35,8 +35,8 @@ import face_align
 faceAnalysis = FaceAnalysis(name='buffalo_l', root='')
 faceAnalysis.prepare(ctx_id=0, det_size=(512, 512))
 
-faceAnalysis_384 = FaceAnalysis(name='buffalo_l', root='')
-faceAnalysis_384.prepare(ctx_id=0, det_size=(384, 384))
+# faceAnalysis_384 = FaceAnalysis(name='buffalo_l', root='')
+# faceAnalysis_384.prepare(ctx_id=0, det_size=(384, 384))
 
 faceAnalysis_256 = FaceAnalysis(name='buffalo_l', root='')
 faceAnalysis_256.prepare(ctx_id=0, det_size=(256, 256))
@@ -45,8 +45,8 @@ faceAnalysis_128 = FaceAnalysis(name='buffalo_l', root='')
 faceAnalysis_128.prepare(ctx_id=0, det_size=(128, 128))
 
 faceAnalysisKV = {
-    '512': faceAnalysis,
-    '384': faceAnalysis_384,
+    # '512': faceAnalysis,
+    # '384': faceAnalysis_384,
     '256': faceAnalysis_256,
     '128': faceAnalysis_128,
 }
@@ -198,46 +198,83 @@ if __name__ == '__main__':
     logo_class.print_start_training()
     model.netD.feature_network.requires_grad_(False)
 
-    image = os.listdir(opt.dataset)
-
     opt.resize_image_to = 128
+
+    from data.data_loader_Swapping import GetLoader
+
+    train_loader    = GetLoader(opt.dataset,opt.batchSize,8,1234)
+
+    randindex = [i for i in range(opt.batchSize)]
+    random.shuffle(randindex)
 
     # Training Cycle
     for step in range(start, total_step):
         model.netG.train()
+        hasError = False
         for interval in range(2):
-            sourceFaceIndex1 = random.randint(0, len(image)-1)
-            sourceFaceIndex2 = random.randint(0, len(image)-1)
-            src_image1 = cv2.imread(f"{opt.dataset}/{image[sourceFaceIndex1]}")
-            src_image2 = cv2.imread(f"{opt.dataset}/{image[sourceFaceIndex2]}")
+            if hasError:
+                interval -=1
+                hasError = False
+            try:
+                random.shuffle(randindex)
+                src_image1_d, src_image2_d  = train_loader.next()
+                
+                src_image1 = []
+                src_image2 = []
+
+                src_image2_info = []
+
+                src = [src_image1_d, src_image2_d]
+                for srcIndex in range(len(src)):
+                    images = src[srcIndex]
+                    for index in range(len(images)):
+                        tensor = images[index]
+                        tensor = tensor.cpu()
+                        tensor = tensor * 255
+
+                        image = tensor.clamp(0, 255).numpy().astype(np.uint8)
+
+                        # Convert from (C, H, W) to (H, W, C)
+                        image = np.transpose(image, (1, 2, 0))
+                        
+                        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+
+                        targetFaceInfo = faceAnalysis.get(image)
+
+                        target_face = targetFaceInfo[0]
+                        aligned_target_face, M = face_align.norm_crop2(image, target_face.kps, opt.resize_image_to)
+                        target_face_blob = Image.getBlob(aligned_target_face, (opt.resize_image_to, opt.resize_image_to))
+
+                        if srcIndex == 0:
+                            src_image1.append(target_face_blob[0])
+                        else:
+                            src_image2.append(target_face_blob[0])
+                            src_image2_info.append(target_face)
+            except:
+                print("Next batch")
+                hasError = True
+                continue
+
+            src_image1 = torch.from_numpy(np.array(src_image1)).to(get_device())
+            src_image2 = torch.from_numpy(np.array(src_image2)).to(get_device())
             
+            latent_id = []
+            sourceFaceInfo = []
             if step%2 == 0:
-                img_id = src_image1
-            else:
                 img_id = src_image2
+                sourceFaceInfo = src_image2_info
+            else:
+                img_id = src_image2[randindex]
+                for ri in randindex:
+                    sourceFaceInfo.append(src_image2_info[ri])
 
-            targetFaceInfo = faceAnalysis.get(src_image1)
-            sourceFaceInfo = faceAnalysis.get(img_id)
+            for info in sourceFaceInfo:
+                latent_id.append(Image.getLatent(info)[0])
 
-            if len(targetFaceInfo) == 0 or len(sourceFaceInfo) == 0: continue
-
-            target_face = targetFaceInfo[0]
-            source_face = sourceFaceInfo[0]
-
-            aligned_target_face, M = face_align.norm_crop2(src_image1, target_face.kps, opt.resize_image_to)
-            target_face_blob = Image.getBlob(aligned_target_face, (opt.resize_image_to, opt.resize_image_to))
-
-            aligned_id_face, M = face_align.norm_crop2(img_id, source_face.kps, opt.resize_image_to)
-            id_face_blob = Image.getBlob(aligned_id_face, (opt.resize_image_to, opt.resize_image_to))
-
-            latent_id = Image.getLatent(source_face)
-            latent_id = torch.from_numpy(latent_id).to(get_device())
-
-            src_image1 = torch.from_numpy(target_face_blob).to(get_device())
-            src_image2 = torch.from_numpy(id_face_blob).to(get_device())
+            latent_id = torch.from_numpy(np.array(latent_id)).to(get_device())
 
             if interval:
-                
+                # for i in range(2):
                 img_fake        = model.netG(src_image1, latent_id)
                 gen_logits,_    = model.netD(img_fake.detach(), None)
                 loss_Dgen       = (F.relu(torch.ones_like(gen_logits) + gen_logits)).mean()
@@ -250,7 +287,7 @@ if __name__ == '__main__':
                 loss_D.backward()
                 optimizer_D.step()
             else:
-                
+                # for i in range(10):
                 # model.netD.requires_grad_(True)
                 img_fake        = model.netG(src_image1, latent_id)
                 # G loss
@@ -258,16 +295,20 @@ if __name__ == '__main__':
                 
                 loss_Gmain      = (-gen_logits).mean()
 
-                img_fake_img = Image.postprocess_face(img_fake)
-                fackFaceInfo = faceAnalysisKV[f'{opt.resize_image_to}'].get(img_fake_img)
-
-                if len(fackFaceInfo) == 0: continue
-                latent_fake = torch.from_numpy(Image.getLatent(fackFaceInfo[0])).to(get_device())
-                loss_G_ID       = (1 - model.cosin_metric(latent_fake, latent_id)).mean()
                 real_feat       = model.netD.get_feature(src_image1)
                 feat_match_loss = model.criterionFeat(feat["3"],real_feat["3"]) 
-                loss_G          = loss_Gmain + loss_G_ID * opt.lambda_id + feat_match_loss * opt.lambda_feat
+                loss_G          = loss_Gmain + feat_match_loss * opt.lambda_feat
                 
+                latent_fake = []
+                for img in img_fake:
+                    img_fake_img = Image.postprocess_face(img)
+                    fackFaceInfo = faceAnalysisKV[f'{opt.resize_image_to}'].get(img_fake_img)
+                    latent_fake.append(Image.getLatent(fackFaceInfo[0])[0])
+
+                latent_fake = torch.from_numpy(np.array(latent_fake)).to(get_device())
+
+                loss_G_ID       = (1 - model.cosin_metric(latent_fake, latent_id)).mean()
+                loss_G += loss_G_ID * opt.lambda_id
 
                 if step%2 == 0:
                     #G_Rec, set this term to 0 if the source and target faces are from different identities
@@ -283,13 +324,15 @@ if __name__ == '__main__':
         ### print out errors
         errors = {
             "G_Loss":loss_Gmain.item(),
-            "G_ID":loss_G_ID.item(),
             "G_Rec":loss_G_Rec.item(),
             "G_feat_match":feat_match_loss.item(),
             "D_fake":loss_Dgen.item(),
             "D_real":loss_Dreal.item(),
             "D_loss":loss_D.item()
         }
+
+        if loss_G_ID is not None:
+            errors["G_ID"] = loss_G_ID.item()
         if opt.use_tensorboard:
             for tag, value in errors.items():
                 logger.add_scalar(tag, value, step)
@@ -324,6 +367,6 @@ if __name__ == '__main__':
             np.savetxt(iter_path, (step+1, total_step), delimiter=',', fmt='%d')
 
         opt.resize_image_to += 128
-        if opt.resize_image_to > 512:
+        if opt.resize_image_to > 256:
             opt.resize_image_to = 128
     # wandb.finish()
