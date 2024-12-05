@@ -62,11 +62,11 @@ class fsModel(BaseModel):
 
             # optimizer G
             params = list(self.netG.parameters())
-            self.optimizer_G = torch.optim.Adam(params, lr=opt.lr, betas=(opt.beta1, 0.99),eps=1e-8)
+            self.optimizer_G = torch.optim.Adam(params, lr=opt.lr_g, betas=(opt.beta1, 0.99),eps=1e-8)
 
             # optimizer D
             params = list(self.netD.parameters())
-            self.optimizer_D = torch.optim.Adam(params, lr=opt.lr, betas=(opt.beta1, 0.99),eps=1e-8)
+            self.optimizer_D = torch.optim.Adam(params, lr=opt.lr_d, betas=(opt.beta1, 0.99),eps=1e-8)
 
         # load networks
         if opt.continue_train:
@@ -98,7 +98,7 @@ class fsModel(BaseModel):
         params = list(self.netG.parameters())
         if self.gen_features:
             params += list(self.netE.parameters())
-        self.optimizer_G = torch.optim.Adam(params, lr=self.opt.lr, betas=(self.opt.beta1, 0.999))
+        self.optimizer_G = torch.optim.Adam(params, lr=self.opt.lr_g, betas=(self.opt.beta1, 0.999))
         if self.opt.verbose:
             print('------------ Now also finetuning global generator -----------')
 

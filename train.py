@@ -81,7 +81,9 @@ class TrainOptions:
         self.parser.add_argument('--niter', type=int, default=10000, help='# of iter at starting learning rate')
         self.parser.add_argument('--niter_decay', type=int, default=10000, help='# of iter to linearly decay learning rate to zero')
         self.parser.add_argument('--beta1', type=float, default=0.0, help='momentum term of adam')
-        self.parser.add_argument('--lr', type=float, default=0.0004, help='initial learning rate for adam')
+        self.parser.add_argument('--lr_g', type=float, default=0.0004, help='initial learning rate for adam - G')
+        self.parser.add_argument('--lr_d', type=float, default=0.0004, help='initial learning rate for adam - D')
+
         self.parser.add_argument('--Gdeep', type=str2bool, default='False')
         self.parser.add_argument('--resize_image_to', type=int, default=512, help='resize the dataset images to a specific resolution')
 

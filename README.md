@@ -31,7 +31,7 @@ Step 3:  Download the zip file from https://github.com/neuralchen/SimSwap/releas
 Step 3:
 
 ```python
-python train.py --use_tensorboard "True" --dataset "FFHQ" --name "reswapper_512" --load_pretrain "checkpoints/reswapper_512" --checkpoints_dir "checkpoints" --sample_freq "1000" --model_freq "1000" --lr "0.00005" --continue_train "True" --which_epoch "0" --load_optimizer "False"
+python train.py --use_tensorboard "True" --dataset "FFHQ" --name "reswapper_512" --load_pretrain "checkpoints/reswapper_512" --checkpoints_dir "checkpoints" --sample_freq "1000" --model_freq "1000" --lr_g "0.00005" --lr_d "0.0001" --continue_train "True" --which_epoch "0" --load_optimizer "False"
 ```
 
 ## To do
