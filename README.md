@@ -86,7 +86,7 @@ The model will be saved as "reswapper-\<total steps\>.pth". You can also save th
 
 All losses will be logged into TensorBoard.
 
-Using images with different resolutions simultaneously to train the model will enhance its generalization ability. To apply this strategy, you can pass "resolution" into the train function.
+Using images with different resolutions simultaneously to train the model will enhance its generalization ability. To apply this strategy, you can pass "resolutions" into the train function.
 
 Generalization ability of the model trained with resolutions of 128 and 256:
 
