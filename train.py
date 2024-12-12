@@ -12,7 +12,7 @@ import onnxruntime as rt
 import cv2
 from insightface.data import get_image as ins_get_image
 from insightface.app import FaceAnalysis
-from insightface.utils import face_align
+import face_align
 
 from StyleTransferModel_128 import StyleTransferModel
 from torch.utils.tensorboard import SummaryWriter

@@ -5,7 +5,7 @@ import cv2
 import torch
 import Image
 from insightface.app import FaceAnalysis
-from insightface.utils import face_align
+import face_align
 
 faceAnalysis = FaceAnalysis(name='buffalo_l')
 faceAnalysis.prepare(ctx_id=0, det_size=(512, 512))

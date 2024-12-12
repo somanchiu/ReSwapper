@@ -59,6 +59,9 @@ There is no information released from insightface. It is an important part of th
 - style loss/id loss
 - perceptual loss
 
+### Face alignment
+Face alignment is handled incorrectly at resolutions other than 128. To resolve this issue, add an offset to "dst" in both x and y directions in the function "face_align.estimate_norm". The offset is approximately given by the formula: Offset = 0.0039 * Resolution - 0.5
+
 ## Training
 ### 0. Pretrained weights (Optional)
 If you don't want to train the model from scratch, you can download the pretrained weights and pass model_path into the train function in train.py.
