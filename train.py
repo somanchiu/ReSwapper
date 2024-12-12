@@ -3,6 +3,7 @@ import os
 import random
 import torch
 import torch.optim as optim
+import torch.nn.functional as F
 
 import Image
 import ModelFormat
@@ -25,13 +26,13 @@ providers = ['CUDAExecutionProvider', 'CPUExecutionProvider']
 inswapperInferenceSession = rt.InferenceSession(inswapper_128_path, providers=providers)
 
 faceAnalysis = FaceAnalysis(name='buffalo_l')
-faceAnalysis.prepare(ctx_id=0, det_size=(640, 640))
+faceAnalysis.prepare(ctx_id=0, det_size=(512, 512))
 
 def get_device():
     return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 style_loss_fn = StyleTransferLoss().to(get_device())
 
-def train(datasetDir, learning_rate=0.0001, model_path=None, outputModelFolder='', saveModelEachSteps = 1, stopAtSteps=None, logDir=None, previewDir=None, saveAs_onnx = False):
+def train(datasetDir, learning_rate=0.0001, model_path=None, outputModelFolder='', saveModelEachSteps = 1, stopAtSteps=None, logDir=None, previewDir=None, saveAs_onnx = False, resolutions = [128]):
     device = get_device()
     print(f"Using device: {device}")
 
@@ -61,9 +62,13 @@ def train(datasetDir, learning_rate=0.0001, model_path=None, outputModelFolder='
 
     image = os.listdir(datasetDir)
 
+    resolutionIndex = 0
+
     # Training loop
     while True:
         start_time = datetime.now()
+        
+        resolution = resolutions[resolutionIndex%len(resolutions)]
 
         targetFaceIndex = random.randint(0, len(image)-1)
         sourceFaceIndex = random.randint(0, len(image)-1)
@@ -92,13 +97,20 @@ def train(datasetDir, learning_rate=0.0001, model_path=None, outputModelFolder='
         else:
             expected_output = blob
 
+        expected_output_tensor = torch.from_numpy(expected_output).to(device)
+
+        if resolution != 128:
+            new_aligned_face, _ = face_align.norm_crop2(target_img, faces[0].kps, resolution)
+            blob = Image.getBlob(new_aligned_face, (resolution, resolution))
+
         latent_tensor = torch.from_numpy(latent).to(device)
         target_input_tensor = torch.from_numpy(blob).to(device)
 
         optimizer.zero_grad()
         output = model(target_input_tensor, latent_tensor)
 
-        expected_output_tensor = torch.from_numpy(expected_output).to(device)
+        if (resolution != 128):
+            output = F.interpolate(output, size=(128, 128), mode='bilinear', align_corners=False)
 
         content_loss, identity_loss = style_loss_fn(output, expected_output_tensor)
 
@@ -131,9 +143,10 @@ def train(datasetDir, learning_rate=0.0001, model_path=None, outputModelFolder='
                 outputModelPath = f"{outputModelFolder}/{outputModelPath}"
             saveModel(model, outputModelPath)
 
-            validation_total_loss, validation_content_loss, validation_identity_loss, swapped_face = validate(outputModelPath)
+            validation_total_loss, validation_content_loss, validation_identity_loss, swapped_face, swapped_face_256 = validate(outputModelPath)
             if previewDir is not None:
                 cv2.imwrite(f"{previewDir}/{totalSteps}.jpg", swapped_face)
+                cv2.imwrite(f"{previewDir}/{totalSteps}_256.jpg", swapped_face_256)
 
             if logDir is not None:
                 val_writer.add_scalar("Loss/total", validation_total_loss.item(), totalSteps)
@@ -146,6 +159,8 @@ def train(datasetDir, learning_rate=0.0001, model_path=None, outputModelFolder='
 
         if stopAtSteps is not None and steps == stopAtSteps:
             exit()
+
+        resolutionIndex += 1
 
 def saveModel(model, outputModelPath):
     torch.save(model.state_dict(), outputModelPath)
@@ -180,6 +195,9 @@ test_target_face, _ = face_align.norm_crop2(test_img, test_faces[0].kps, img_siz
 test_target_face = Image.getBlob(test_target_face)
 test_l = Image.getLatent(test_faces[2])
 
+test_target_face_256, _ = face_align.norm_crop2(test_img, test_faces[0].kps, 256)
+test_target_face_256 = Image.getBlob(test_target_face_256, (256, 256))
+
 test_input = {inswapperInferenceSession.get_inputs()[0].name: test_target_face,
         inswapperInferenceSession.get_inputs()[1].name: test_l}
 
@@ -188,6 +206,7 @@ test_inswapperOutput = inswapperInferenceSession.run([inswapperInferenceSession.
 def validate(modelPath):
     model = load_model(modelPath)
     swapped_face, swapped_tensor= swap_face(model, test_target_face, test_l)
+    swapped_face_256, _= swap_face(model, test_target_face_256, test_l)
 
     validation_content_loss, validation_identity_loss = style_loss_fn(swapped_tensor, torch.from_numpy(test_inswapperOutput).to(get_device()))
 
@@ -195,7 +214,7 @@ def validate(modelPath):
     if validation_identity_loss is not None:
         validation_total_loss += validation_identity_loss
 
-    return validation_total_loss, validation_content_loss, validation_identity_loss, swapped_face
+    return validation_total_loss, validation_content_loss, validation_identity_loss, swapped_face, swapped_face_256
 
 def main():
     outputModelFolder = "model"
@@ -213,7 +232,7 @@ def main():
         datasetDir=datasetDir,
         model_path=modelPath,
         learning_rate=0.0001,
-
+        # resolutions = [128, 256],
         outputModelFolder=outputModelFolder,
         saveModelEachSteps = 1000,
         stopAtSteps = 70000,

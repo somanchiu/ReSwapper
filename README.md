@@ -3,11 +3,11 @@
 ReSwapper aims to reproduce the implementation of inswapper. This repository provides code for training, inference, and includes pretrained weights.
 
 Here is the comparesion of the output of Inswapper and Reswapper.
-| Target | Source | Inswapper Output | Reswapper Output<br>(Step 1019500) | Reswapper Output<br>(Step 429500) | 
-|--------|--------|--------|--------|--------|
-| ![image](example/1/target.jpg) |![image](example/1/source.jpg) | ![image](example/1/inswapperOutput.jpg) | ![image](example/1/reswapperOutput-1019500.jpg) | ![image](example/1/reswapperOutput-429500.jpg) |
-| ![image](example/2/target.jpg) |![image](example/2/source.jpg) | ![image](example/2/inswapperOutput.jpg) | ![image](example/2/reswapperOutput-1019500.jpg) | ![image](example/2/reswapperOutput-429500.jpg) |
-| ![image](example/3/target.jpg) |![image](example/3/source.png) | ![image](example/3/inswapperOutput.jpg) | ![image](example/3/reswapperOutput-1019500.jpg) | ![image](example/3/reswapperOutput-429500.jpg) |
+| Target | Source | Inswapper Output | Reswapper Output<br>(256 resolution)<br>(Step 1399500) | Reswapper Output<br>(Step 1019500) | Reswapper Output<br>(Step 429500) | 
+|--------|--------|--------|--------|--------|--------|
+| ![image](example/1/target.jpg) |![image](example/1/source.jpg) | ![image](example/1/inswapperOutput.jpg) | ![image](example/1/reswapperOutput-1399500_256.jpg) |![image](example/1/reswapperOutput-1019500.jpg) | ![image](example/1/reswapperOutput-429500.jpg) |
+| ![image](example/2/target.jpg) |![image](example/2/source.jpg) | ![image](example/2/inswapperOutput.jpg) | ![image](example/2/reswapperOutput-1399500_256.jpg) | ![image](example/2/reswapperOutput-1019500.jpg) | ![image](example/2/reswapperOutput-429500.jpg) |
+| ![image](example/3/target.jpg) |![image](example/3/source.png) | ![image](example/3/inswapperOutput.jpg) | ![image](example/3/reswapperOutput-1399500_256.jpg) | ![image](example/3/reswapperOutput-1019500.jpg) | ![image](example/3/reswapperOutput-429500.jpg) |
 
 ## Installation
 
@@ -84,6 +84,14 @@ The model will be saved as "reswapper-\<total steps\>.pth". You can also save th
 
 All losses will be logged into TensorBoard.
 
+Using images with different resolutions simultaneously to train the model will enhance its generalization ability. To apply this strategy, you can pass "resolution" into the train function.
+
+Generalization ability of the model trained with resolutions of 128 and 256:
+
+| Output<br>resolution | 128 | 160 | 256 |
+|--------|--------|--------|--------|
+|Output| ![image](example/GeneralizationAbility/1399500_128.jpg) |![image](example/GeneralizationAbility/1399500_160.jpg) |![image](example/GeneralizationAbility/1399500_256.jpg) |
+
 #### Notes
 - Do not stop the training too early.
 
@@ -97,7 +105,10 @@ python swap.py
 ```
 
 ## Pretrained Model
+### 256 Resolution
+- [reswapper_256-1399500.pth](https://huggingface.co/somanchiu/reswapper/tree/main)
 
+### 128 Resolution
 - [reswapper-1019500.pth](https://huggingface.co/somanchiu/reswapper/tree/main)
 - [reswapper-1019500.onnx](https://huggingface.co/somanchiu/reswapper/tree/main)
 - [reswapper-429500.pth](https://huggingface.co/somanchiu/reswapper/tree/main)

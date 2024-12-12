@@ -20,6 +20,7 @@ def parse_arguments():
     parser.add_argument('--outputPath', required=True, help='Output path')
     parser.add_argument('--modelPath', required=True, help='Model path')
     parser.add_argument('--no-paste-back', action='store_true', help='Disable pasting back the swapped face onto the original image')
+    parser.add_argument('--resolution', type=int, default=128, help='Resolution')
 
     return parser.parse_args()
 
@@ -77,7 +78,7 @@ def main():
     model = load_model(model_path)
 
     target_img = cv2.imread(target_image_path)
-    target_face_blob, M = create_target(target_img, 128)
+    target_face_blob, M = create_target(target_img, args.resolution)
     source_latent = create_source(source)
     swapped_face, _ = swap_face(model, target_face_blob, source_latent)
 
