@@ -1,10 +1,9 @@
 import torch.nn as nn
-import torch.nn.functional as F
 
 class AdaIN(nn.Module):
     def __init__(self, embedding_dim, num_features):
         super().__init__()
-        self.norm = nn.InstanceNorm2d(num_features, affine=False, eps=1e-6)
+        self.norm = nn.InstanceNorm2d(num_features, affine=False, eps=1e-8)
         self.style = nn.Linear(embedding_dim, num_features * 2)
 
     def forward(self, x, s):
@@ -28,7 +27,7 @@ class StyleConvLayer(nn.Module):
     ):
         super().__init__()
         # self.upsample = upsample
-        self.conv = nn.Conv2d(in_channels, out_channels, 3, padding=1)
+        self.conv = nn.Conv2d(in_channels, out_channels, 3, padding=1, padding_mode="reflect")
         self.adain = AdaIN(embedding_dim, out_channels)
         self.activation = activation
 
@@ -80,7 +79,7 @@ class StyleTransferModel(nn.Module):
 
         # Encoder for target face
         self.down = nn.Sequential(
-            nn.Conv2d(3, 128, (7, 7), padding="same", padding_mode="reflect"),
+            nn.Conv2d(3, 128, (7, 7), padding=3, padding_mode="reflect"),
             nn.LeakyReLU(0.2),
             nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
             nn.LeakyReLU(0.2),
@@ -104,7 +103,7 @@ class StyleTransferModel(nn.Module):
             nn.LeakyReLU(0.2),
             nn.Conv2d(256, 128, (3, 3), padding=1),
             nn.LeakyReLU(0.2),
-            nn.Conv2d(128, 3, (7, 7), padding="same", padding_mode="reflect"),
+            nn.Conv2d(128, 3, (7, 7), padding=3, padding_mode="reflect"),
             nn.Tanh(),
         )
 
