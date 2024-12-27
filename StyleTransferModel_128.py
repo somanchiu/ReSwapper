@@ -30,7 +30,7 @@ class StyleConvLayer(nn.Module):
         # self.upsample = upsample
         self.conv = nn.Conv2d(in_channels, out_channels, 3, padding=1)
         self.adain = AdaIN(embedding_dim, out_channels)
-        self.activation = activation()
+        self.activation = activation
 
     def forward(self, x, style):
         """
