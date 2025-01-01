@@ -1,16 +1,85 @@
-import torch
 import torch.nn as nn
-import torch.nn.functional as F
+
+class AdaIN(nn.Module):
+    def __init__(self, embedding_dim, num_features):
+        super().__init__()
+        self.norm = nn.InstanceNorm2d(num_features, affine=False, eps=1e-8)
+        self.style = nn.Linear(embedding_dim, num_features * 2)
+
+    def forward(self, x, s):
+        """
+        x: (B, C, H, W)
+        s: (B, embedding_size)
+        """
+        style = self.style(s).unsqueeze(-1).unsqueeze(-1)
+        gamma, beta = style.chunk(2, dim=1)
+        out = self.norm(x)
+        return gamma * out + beta
+
+
+class StyleConvLayer(nn.Module):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        embedding_dim,
+        activation,
+    ):
+        super().__init__()
+        # self.upsample = upsample
+        self.conv = nn.Conv2d(in_channels, out_channels, 3, padding=1, padding_mode="reflect")
+        self.adain = AdaIN(embedding_dim, out_channels)
+        self.activation = activation
+
+    def forward(self, x, style):
+        """
+        x: latents (B, C, H, W)
+        style: (B, embedding_size)
+        """
+        x = self.conv(x)
+        x = self.adain(x, style)
+        return self.activation(x)
+
+
+class StyleBlock(nn.Module):
+    def __init__(
+        self,
+        in_channels,
+        out_channels,
+        embedding_dim,
+        activation,
+    ):
+        super().__init__()
+        self.conv1 = StyleConvLayer(
+            in_channels,
+            out_channels,
+            embedding_dim,
+            activation,
+        )
+        self.conv2 = StyleConvLayer(
+            out_channels,
+            out_channels,
+            embedding_dim,
+            nn.Identity(),
+        )
+
+    def forward(self, x, style):
+        """
+        x: latents (B, C, H, W)
+        style: (B, embedding_size)
+        """
+        x = self.conv1(x, style)
+        x = self.conv2(x, style)
+        return x
+
 
 class StyleTransferModel(nn.Module):
     def __init__(self):
         super(StyleTransferModel, self).__init__()
 
-        # self.pad = nn.ReflectionPad2d(3)
         # Encoder for target face
-        self.target_encoder = nn.Sequential(
-            # self.pad,
-            nn.Conv2d(3, 128, kernel_size=7, stride=1, padding=0),
+        self.down = nn.Sequential(
+            nn.Conv2d(3, 128, (7, 7), padding=3, padding_mode="reflect"),
             nn.LeakyReLU(0.2),
             nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
             nn.LeakyReLU(0.2),
@@ -20,107 +89,31 @@ class StyleTransferModel(nn.Module):
             nn.LeakyReLU(0.2),
         )
 
-        # for style_block in self.target_encoder:
-        #     for param in style_block.parameters():
-        #         param.requires_grad = False
-        
         # Style blocks
         self.style_blocks = nn.ModuleList([
-            StyleBlock(1024, 1024, blockIndex) for blockIndex in range(6)
+            StyleBlock(1024, 1024, 512, nn.ReLU()) for i in range(6)
         ])
-        
-        # Decoder (upsampling)
-        self.decoder = nn.Sequential(
-            nn.Conv2d(1024, 512, kernel_size=3, stride=1, padding=1),
-            nn.LeakyReLU(0.2)
-        )
 
-        self.decoderPart1 = nn.Sequential(
-            nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=1),
+        self.up = nn.Sequential(
+            nn.Upsample(scale_factor=2, mode="bilinear", align_corners=False),
+            nn.Conv2d(1024, 512, (3, 3), padding=1),
             nn.LeakyReLU(0.2),
-            nn.Conv2d(256, 128, kernel_size=3, stride=1, padding=1),
-            nn.LeakyReLU(0.2)
-        )
-
-        self.decoderPart2 = nn.Sequential(
-            # self.pad,
-            nn.Conv2d(128, 3, kernel_size=7, stride=1, padding=0),
-            nn.Tanh()
+            nn.Upsample(scale_factor=2, mode="bilinear", align_corners=False),
+            nn.Conv2d(512, 256, (3, 3), padding=1),
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(256, 128, (3, 3), padding=1),
+            nn.LeakyReLU(0.2),
+            nn.Conv2d(128, 3, (7, 7), padding=3, padding_mode="reflect"),
+            nn.Tanh(),
         )
 
     def forward(self, target, source):
         # Encode target face
-        target = F.pad(target, pad=(3, 3, 3, 3), mode='reflect')
+        x = self.down(target)
 
-        target_features = self.target_encoder(target)
-        
-        # Apply style blocks
-        x = target_features
         for style_block in self.style_blocks:
-            x = style_block(x, source)
+            x = style_block(x, source) + x
 
-        
-        # Decode
-        # x = F.interpolate(x, scale_factor=2, mode='linear')
-        x = F.upsample(
-            x,
-            scale_factor=2,  # specify the desired height and width
-            mode='bilinear',  # 'linear' in 2D is called 'bilinear'
-            align_corners=False  # this is typically False for ONNX compatibility
-        )
-        output = self.decoder(x)
+        output = self.up(x)
 
-        output = F.upsample(
-            output,
-            scale_factor=2,  # specify the desired height and width
-            mode='bilinear',  # 'linear' in 2D is called 'bilinear'
-            align_corners=False  # this is typically False for ONNX compatibility
-        )
-        output = self.decoderPart1(output)
-
-        output = F.pad(output, pad=(3, 3, 3, 3), mode='reflect')
-
-        output = self.decoderPart2(output)
-        
         return (output + 1) / 2
-
-class StyleBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, blockIndex):
-        super(StyleBlock, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=0)
-        self.conv2 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=0)
-        self.style1 = nn.Linear(512, 2048)
-        self.style2 = nn.Linear(512, 2048)
-        self.style = [self.style1, self.style2]
-
-        self.blockIndex = blockIndex
-
-    def normalizeConvRMS(self, conv):
-        x = conv - torch.mean(conv, dim=[2, 3], keepdim=True) # centeredConv
-        squareX = x * x
-        meanSquaredX = torch.mean(squareX, dim=[2, 3], keepdim=True)
-        rms = torch.sqrt(meanSquaredX + 0.00000001)
-        return (1 / rms) * x
-
-    def forward(self, residual, style):
-        # print(f'Forward: {self.blockIndex}')
-        style1024 = []
-        for index in range(2):
-            style1 = self.style[index](style)
-            style1 = torch.unsqueeze(style1, 2)
-            style1 = torch.unsqueeze(style1, 3)
-            first_half = style1[:, :1024, :, :]
-            second_half = style1[:, 1024:, :, :]
-
-            style1024.append([first_half, second_half])
-
-        conv1 = self.normalizeConvRMS(self.conv1(F.pad(residual, pad=(1, 1, 1, 1), mode='reflect')))
-
-        out = F.relu(conv1 * style1024[0][0] + style1024[0][1])
-
-        out = F.pad(out, pad=(1, 1, 1, 1), mode='reflect')
-
-        conv2 = self.normalizeConvRMS(self.conv2(out))
-        out = conv2 * style1024[1][0] + style1024[1][1]
-
-        return residual + out
