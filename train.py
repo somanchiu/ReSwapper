@@ -32,7 +32,7 @@ def get_device():
     return torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 style_loss_fn = StyleTransferLoss().to(get_device())
 
-def train(datasetDir, learning_rate=0.0001, model_path=None, outputModelFolder='', saveModelEachSteps = 1, stopAtSteps=None, logDir=None, previewDir=None, saveAs_onnx = False, resolutions = [128]):
+def train(datasetDir, learning_rate=0.0001, model_path=None, outputModelFolder='', saveModelEachSteps = 1, stopAtSteps=None, logDir=None, previewDir=None, saveAs_onnx = False, resolutions = [128], enableDataAugmentation = False):
     device = get_device()
     print(f"Using device: {device}")
 
@@ -74,6 +74,9 @@ def train(datasetDir, learning_rate=0.0001, model_path=None, outputModelFolder='
         sourceFaceIndex = random.randint(0, len(image)-1)
 
         target_img=cv2.imread(f"{datasetDir}/{image[targetFaceIndex]}")
+        if enableDataAugmentation and steps % 2 == 0:
+            target_img = cv2.cvtColor(target_img, cv2.COLOR_BGR2GRAY)
+            target_img = cv2.cvtColor(target_img, cv2.COLOR_GRAY2BGR)
         faces = faceAnalysis.get(target_img)
 
         if targetFaceIndex != sourceFaceIndex:
@@ -233,6 +236,7 @@ def main():
         model_path=modelPath,
         learning_rate=0.0001,
         # resolutions = [128, 256],
+        # enableDataAugmentation=True,
         outputModelFolder=outputModelFolder,
         saveModelEachSteps = 1000,
         stopAtSteps = 70000,

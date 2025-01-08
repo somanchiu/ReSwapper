@@ -94,6 +94,12 @@ Generalization ability of the model trained with resolutions of 128 and 256:
 |--------|--------|--------|--------|
 |Output| ![image](example/GeneralizationAbility/1399500_128.jpg) |![image](example/GeneralizationAbility/1399500_160.jpg) |![image](example/GeneralizationAbility/1399500_256.jpg) |
 
+Enhancing data diversity will improve output quality, you can pass "enableDataAugmentation" into the train function to perform data augmentation.
+
+| Target | Source | Inswapper Output | Reswapper Output<br>(Step 1567500) | Reswapper Output<br>(Step 1399500) |
+|--------|--------|--------|--------|--------|
+|![image](example/DataAugmentation/target.jpg)| ![image](example/DataAugmentation/source.jpg) |![image](example/DataAugmentation/inswapper_output.jpg) |![image](example/DataAugmentation/reswapper_256Output-1567500.jpg) | ![image](example/DataAugmentation/reswapper_256Output-1399500.jpg) |
+
 #### Notes
 - Do not stop the training too early.
 
@@ -108,6 +114,7 @@ python swap.py
 
 ## Pretrained Model
 ### 256 Resolution
+- [reswapper_256-1567500.pth](https://huggingface.co/somanchiu/reswapper/tree/main)
 - [reswapper_256-1399500.pth](https://huggingface.co/somanchiu/reswapper/tree/main)
 
 ### 128 Resolution
