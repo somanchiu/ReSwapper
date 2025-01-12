@@ -20,18 +20,10 @@ def estimate_norm(lmk, image_size=112,mode='arcface'):
     dst = arcface_dst * ratio
     dst[:,0] += diff_x
 
-    if image_size == 160:
-        dst[:,0] += 0.1
-        dst[:,1] += 0.1
-    elif image_size == 256:
-        dst[:,0] += 0.5
-        dst[:,1] += 0.5
-    elif image_size == 320:
-        dst[:,0] += 0.75
-        dst[:,1] += 0.75
-    elif image_size == 512:
-        dst[:,0] += 1.5
-        dst[:,1] += 1.5
+    if image_size != 128:
+        offset = (128/32768)*image_size-0.5
+        dst[:,0] += offset
+        dst[:,1] += offset
 
     tform = trans.SimilarityTransform()
     tform.estimate(lmk, dst)

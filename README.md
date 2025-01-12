@@ -62,7 +62,7 @@ There is no information released from insightface. It is an important part of th
 - perceptual loss
 
 ### Face alignment
-Face alignment is handled incorrectly at resolutions other than 128. To resolve this issue, add an offset to "dst" in both x and y directions in the function "face_align.estimate_norm". The offset is approximately given by the formula: Offset = 0.0039 * Resolution - 0.5
+Face alignment is handled incorrectly at resolutions other than 128. To resolve this issue, add an offset to "dst" in both x and y directions in the function "face_align.estimate_norm". The offset is approximately given by the formula: Offset = (128/32768) * Resolution - 0.5
 
 ## Training
 ### 0. Pretrained weights (Optional)
