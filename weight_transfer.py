@@ -2,7 +2,7 @@ import onnx
 from onnx import numpy_helper
 import torch
 
-# Referring PR #10. Thanks, @blend-er
+# Referring to PR #10. Thanks, @blend-er
 def arcface_onnx_to_pth(arcface_onnx_path="~/.insightface/buffalo_l/w600k_r50.onnx", output_model_path="arcface_w600k_r50.pth"):
     import iresnet
 
