@@ -39,9 +39,30 @@ The model architectures of InSwapper and SimSwap are extremely similar and worth
 
 ### Model inputs
 - target: [1, 3, 128, 128] shape image in RGB format with face alignment, normalized to [-1, 1] range
-- source (latent): [1, 512] shape vector, the features of the source face
-    - Calculation of latent, "emap" can be extracted from the original inswapper model.
+- source (latent): [1, 512] shape vector, the features of the source face, obtained using the ArcFace model.
+    - Calculation of latent
+        - The details of ArcFace model
+            - Architecture: IResNet50
+            - Input: [1, 3, 112, 112] shape image in RGB format with face alignment, normalized to [-1, 1] range
+            - Output: [1, 512] shape vector
+        - "emap" can be extracted from the original inswapper model.
         ```python
+        from numpy.linalg import norm as l2norm
+
+        input_mean = 127.5
+        input_std = 127.5
+        input_size = (112, 112)
+
+        aimg, _ = face_align.norm_crop2(img, landmark=face.kps, image_size=input_size[0])
+
+        blob = cv2.dnn.blobFromImages([aimg], 1.0 / input_std, input_size,
+                                      (input_mean, input_mean, input_mean), swapRB=True)
+        net_out = session.run(output_names, {input_name: blob})[0]
+
+        embedding = net_out.flatten()
+
+        normed_embedding = embedding / l2norm(embedding)
+
         latent = source_face.normed_embedding.reshape((1,-1))
         latent = np.dot(latent, emap)
         latent /= np.linalg.norm(latent)
