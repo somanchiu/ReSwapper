@@ -63,7 +63,7 @@ The model architectures of InSwapper and SimSwap are extremely similar and worth
 
         normed_embedding = embedding / l2norm(embedding)
 
-        latent = source_face.normed_embedding.reshape((1,-1))
+        latent = normed_embedding.reshape((1,-1))
         latent = np.dot(latent, emap)
         latent /= np.linalg.norm(latent)
         ```
