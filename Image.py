@@ -1,6 +1,7 @@
 
 import cv2
 import numpy as np
+import torch
 
 emap = np.load("emap.npy")
 input_std = 255.0
@@ -22,6 +23,36 @@ def getLatent(source_face):
     latent = source_face.normed_embedding.reshape((1,-1))
     latent = np.dot(latent, emap)
     latent /= np.linalg.norm(latent)
+
+    return latent
+
+def getLatent_v2(arcface, aligned_source_face):
+    input_mean = 127.5
+    input_std = 127.5
+    input_size = (112, 112)
+    emap_tensor = torch.from_numpy(emap).to('cuda')
+
+    # aligned_source_face, _ = face_align.norm_crop2(source_img, faces2[0].kps, image_size=input_size[0])
+    device = 'cuda'
+    is_ndarray = isinstance(aligned_source_face, np.ndarray)
+    if is_ndarray:
+        blob = cv2.dnn.blobFromImages([aligned_source_face], 1.0 / input_std, input_size,
+                                    (input_mean, input_mean, input_mean), swapRB=True)
+        
+        aligned_source_face = torch.from_numpy(blob).to(device)
+    net_out = arcface(aligned_source_face)[0] # input shape [1,3,112,112] norm[-1,1]
+
+    embedding = net_out.flatten()
+    # from numpy.linalg import norm as l2norm
+    # normed_embedding = embedding / l2norm(embedding)
+    normed_embedding = embedding / torch.norm(embedding, p=2)
+    # latent = 
+
+
+    latent = torch.mm(normed_embedding.reshape((1, -1)), emap_tensor)
+    latent = latent / torch.norm(latent)
+    # latent = np.dot(latent, emap)
+    # latent /= np.linalg.norm(latent)
 
     return latent
 

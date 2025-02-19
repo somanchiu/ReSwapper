@@ -20,22 +20,28 @@ The model architectures of InSwapper and SimSwap are extremely similar. This bra
   ```
 
 ## Training
-Experimental starting point:
+The training now works, but it's unstable. The discriminator losses fluctuate heavily.
 
-Step 1: Download [FFHQ](https://www.kaggle.com/datasets/arnaud58/flickrfaceshq-dataset-ffhq)
+### 0. Pretrained weights
+1. Download [arcface_w600k_r50.pth](https://huggingface.co/somanchiu/reswapper/tree/main) or convert the w600k_r50.onnx to arcface_w600k_r50.pth yourself using weight_transfer.arcface_onnx_to_pth
+2. (Optional) Download [\<step>_net_D.pth](https://huggingface.co/somanchiu/reswapper/tree/main/GAN) and [\<step>_net_G.pth](https://huggingface.co/somanchiu/reswapper/tree/main/GAN) and place it in the folder "checkpoints/reswapper" 
 
-Step 2: Donwload the ReSwapper pretrained weight and place it in the folder "checkpoints/reswapper_512". Rename the pretrained weight to "0_net_G.pth"
+### 1. Dataset Preparation
+Download [VGGFace2-HQ](https://github.com/NNNNAI/VGGFace2-HQ)
 
-Step 3:  Download the zip file from https://github.com/neuralchen/SimSwap/releases/download/1.0/checkpoints.zip, extract "people/latest_net_D1.pth" and place it in the folder "checkpoints/reswapper_512" and rename it to "0_net_D.pth"
+### 2. Model Training
 
-Step 3:
-
+Example:
 ```python
-python train.py --use_tensorboard "True" --dataset "FFHQ" --name "reswapper_512" --load_pretrain "checkpoints/reswapper_512" --checkpoints_dir "checkpoints" --sample_freq "1000" --model_freq "1000" --lr_g "0.00005" --lr_d "0.0001" --continue_train "True" --which_epoch "0" --load_optimizer "False"
+python train.py --use_tensorboard "True" --dataset "VGGface2_HQ/VGGface2_None_norm_512_true_bygfpgan" --name "reswapper" --load_pretrain "checkpoints/reswapper" --sample_freq "1000" --model_freq "1000" --batchSize "4" --lr_g "0.00005" --lr_d "0.00005" --load_optimizer "False"
 ```
 
+### Notes
+- batchSize must be greater than or equal to 2
+- Tested args:
+  - For the steps from 0 to 6500: --lr_g "0.00005" --lr_d "0.0001" --lambda_feat "1" --batchSize "4"
+  - For the steps from 6501 to 40000: --lr_g "0.00005" --lr_d "0.00005" --lambda_feat "1" --batchSize "4"
+  - For the steps starting from 40001: --lr_g "0.00005" --lr_d "0.00001" --lambda_feat "1" --batchSize "4"
+
 ## To do
-- Fix runtime errors: In progress
-- Changing the model architecture from SimSwap to InSwapper: Done
-- Experiment with the training: In progress
-- Clean the code: Not started
+- Improve the stability of the training process

@@ -757,7 +757,7 @@ class MultiscaleDiscriminator(nn.Module):
             result.append(self.singleD_forward(model, input_downsampled))
             if i != (num_D-1):
                 input_downsampled = self.downsample(input_downsampled)
-        return result
+        return result, None
         
 # Defines the PatchGAN discriminator with the specified arguments.
 class NLayerDiscriminator(nn.Module):

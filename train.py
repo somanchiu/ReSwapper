@@ -17,6 +17,10 @@ import argparse
 import cv2
 import numpy as np
 
+import onnxruntime
+
+import iresnet
+onnxruntime.set_default_logger_severity(3)
 import torch
 import torch.nn.functional as F
 from torch.backends import cudnn
@@ -92,7 +96,7 @@ class TrainOptions:
         self.parser.add_argument('--lambda_id', type=float, default=30.0, help='weight for id loss')
         self.parser.add_argument('--lambda_rec', type=float, default=10.0, help='weight for reconstruction loss') 
 
-        self.parser.add_argument("--Arc_path", type=str, default='arcface_model/arcface_checkpoint.tar', help="run ONNX model via TRT")
+        self.parser.add_argument("--arcface_model_path", type=str, default='arcface_w600k_r50.pth', help="arcface model path")
         self.parser.add_argument("--total_step", type=int, default=1000000, help='total training step')
         self.parser.add_argument("--sample_freq", type=int, default=1000, help='frequence for sampling')
         self.parser.add_argument("--model_freq", type=int, default=1000, help='frequence for saving the model')
@@ -138,7 +142,7 @@ if __name__ == '__main__':
     if not os.path.exists(sample_path):
         os.makedirs(sample_path)
     
-    log_path = os.path.join(opt.checkpoints_dir, opt.name, 'summary')
+    log_path = os.path.join(opt.checkpoints_dir, opt.name, f'summary/{opt.lambda_id} {opt.lambda_feat} {opt.lambda_rec} {opt.lr_g} {opt.lr_d}')
 
     if not os.path.exists(log_path):
         os.makedirs(log_path)
@@ -207,22 +211,36 @@ if __name__ == '__main__':
     randindex = [i for i in range(opt.batchSize)]
     random.shuffle(randindex)
 
+    mean = [0.485, 0.456, 0.406]  # RGB mean
+    std = [0.229, 0.224, 0.225]   # RGB std
+    from torchvision import transforms
+
+    # Define preprocessing pipeline for tf_efficientnet_lite0
+    preprocess = transforms.Compose([
+        transforms.Normalize(mean=mean, std=std)
+    ])
+
+    arcface = iresnet.iresnet50()
+    arcface.load_state_dict(torch.load(opt.arcface_model_path, map_location=get_device()))
+    arcface.to(get_device())
+    arcface.eval()
+
     # Training Cycle
     for step in range(start, total_step):
         model.netG.train()
-        hasError = False
-        for interval in range(2):
-            if hasError:
-                interval -=1
-                hasError = False
+        
+        interval = 0
+        while interval <= 1 :
             try:
+                loss_G_Rec = None
+
                 random.shuffle(randindex)
                 src_image1_d, src_image2_d  = train_loader.next()
                 
                 src_image1 = []
                 src_image2 = []
 
-                src_image2_info = []
+                source_img = []
 
                 src = [src_image1_d, src_image2_d]
                 for srcIndex in range(len(src)):
@@ -249,87 +267,103 @@ if __name__ == '__main__':
                             src_image1.append(target_face_blob[0])
                         else:
                             src_image2.append(target_face_blob[0])
-                            src_image2_info.append(target_face)
             except:
                 print("Next batch")
-                hasError = True
                 continue
 
             src_image1 = torch.from_numpy(np.array(src_image1)).to(get_device())
             src_image2 = torch.from_numpy(np.array(src_image2)).to(get_device())
-            
+
             latent_id = []
-            sourceFaceInfo = []
-            if step%2 == 0:
+            targetEqSource = step%2 == 0
+            # targetEqSource = random.random() < 0.5  # 50% chance for either case
+
+            if targetEqSource:
                 img_id = src_image2
-                sourceFaceInfo = src_image2_info
             else:
                 img_id = src_image2[randindex]
-                for ri in randindex:
-                    sourceFaceInfo.append(src_image2_info[ri])
 
-            for info in sourceFaceInfo:
-                latent_id.append(Image.getLatent(info)[0])
-
-            latent_id = torch.from_numpy(np.array(latent_id)).to(get_device())
+            for img in img_id:
+                img_id_112      = F.interpolate(img.unsqueeze(0),size=(112,112), mode='bicubic')
+                latent_id.append(Image.getLatent_v2(arcface, (img_id_112 + 1)/2)[0])
+            
+            latent_id = torch.stack(latent_id, axis=0)
+            # latent_id = torch.from_numpy(latent_id).to(get_device())
 
             if interval:
-                # for i in range(2):
+                # for i in range(1):
                 img_fake        = model.netG(src_image1, latent_id)
-                gen_logits,_    = model.netD(img_fake.detach(), None)
+                gen_logits,_    = model.netD(preprocess(img_fake.detach()), None)
                 loss_Dgen       = (F.relu(torch.ones_like(gen_logits) + gen_logits)).mean()
 
-                real_logits,_   = model.netD(src_image2,None)
+                real_logits,_   = model.netD(preprocess(src_image2),None)
                 loss_Dreal      = (F.relu(torch.ones_like(real_logits) - real_logits)).mean()
 
                 loss_D          = loss_Dgen + loss_Dreal
                 optimizer_D.zero_grad()
                 loss_D.backward()
+                torch.nn.utils.clip_grad_norm_(model.netD.parameters(), max_norm=1.0)
                 optimizer_D.step()
             else:
                 # for i in range(10):
                 # model.netD.requires_grad_(True)
                 img_fake        = model.netG(src_image1, latent_id)
                 # G loss
-                gen_logits,feat = model.netD(img_fake, None)
+                gen_logits,feat = model.netD(preprocess(img_fake), None)
                 
                 loss_Gmain      = (-gen_logits).mean()
 
-                real_feat       = model.netD.get_feature(src_image1)
+                real_feat       = model.netD.get_feature(preprocess(src_image1))
                 feat_match_loss = model.criterionFeat(feat["3"],real_feat["3"]) 
                 loss_G          = loss_Gmain + feat_match_loss * opt.lambda_feat
                 
-                latent_fake = []
-                for img in img_fake:
-                    img_fake_img = Image.postprocess_face(img)
-                    fackFaceInfo = faceAnalysisKV[f'{opt.resize_image_to}'].get(img_fake_img)
-                    latent_fake.append(Image.getLatent(fackFaceInfo[0])[0])
+                try:
+                    loss_G_ID = None
 
-                latent_fake = torch.from_numpy(np.array(latent_fake)).to(get_device())
+                    latent_fake = []
+                    for img in img_fake:
+                        # img_fake_img = Image.postprocess_face(img)
+                        # cv2.imwrite("0.jpg", img_fake_img)
+                        # fackFaceInfo = faceAnalysisKV[f'{opt.resize_image_to}'].get(img_fake_img)
+                        output_112 = F.interpolate(img.unsqueeze(0), size=(112, 112), mode='bilinear', align_corners=False)
 
-                loss_G_ID       = (1 - model.cosin_metric(latent_fake, latent_id)).mean()
-                loss_G += loss_G_ID * opt.lambda_id
+                        latent_fake.append(Image.getLatent_v2(arcface, (output_112 + 1 ) /2)[0])
 
-                if step%2 == 0:
+                    # aligned_source_face, _ = face_align.norm_crop2(info['image'], info['info'].kps, image_size=112)
+
+                    latent_fake = torch.stack(latent_fake, axis=0)
+
+
+                    loss_G_ID       = (1 - model.cosin_metric(latent_fake, latent_id)).mean()
+                    loss_G += loss_G_ID * opt.lambda_id
+                except Exception as e:
+                    print(e)
+                    print("Face not found")
+
+                if targetEqSource:
                     #G_Rec, set this term to 0 if the source and target faces are from different identities
                     loss_G_Rec  = model.criterionRec(img_fake, src_image1) * opt.lambda_rec
                     loss_G      += loss_G_Rec
 
                 optimizer_G.zero_grad()
                 loss_G.backward()
+                torch.nn.utils.clip_grad_norm_(model.netG.parameters(), max_norm=1.0)
                 optimizer_G.step()
-                
-
+            
+            interval += 1
+        
         ############## Display results and errors ##########
         ### print out errors
         errors = {
             "G_Loss":loss_Gmain.item(),
-            "G_Rec":loss_G_Rec.item(),
             "G_feat_match":feat_match_loss.item(),
             "D_fake":loss_Dgen.item(),
             "D_real":loss_Dreal.item(),
             "D_loss":loss_D.item()
         }
+
+        if loss_G_Rec is not None:
+            errors["G_Rec"] = loss_G_Rec.item()
 
         if loss_G_ID is not None:
             errors["G_ID"] = loss_G_ID.item()
@@ -366,7 +400,6 @@ if __name__ == '__main__':
             model.save(step+1)            
             np.savetxt(iter_path, (step+1, total_step), delimiter=',', fmt='%d')
 
-        opt.resize_image_to += 128
-        if opt.resize_image_to > 256:
-            opt.resize_image_to = 128
-    # wandb.finish()
+        # opt.resize_image_to += 128
+        # if opt.resize_image_to > 256:
+        #     opt.resize_image_to = 128

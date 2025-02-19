@@ -14,6 +14,9 @@
 import torch
 import torch.nn as nn
 
+from models.networks import MultiscaleDiscriminator
+from new_discriminator import Discriminator
+
 from .base_model import BaseModel
 from .fs_networks_fix import Generator_Adain_Upsample
 
@@ -43,11 +46,21 @@ class fsModel(BaseModel):
         self.netG = Generator_Adain_Upsample()
         self.netG.cuda()
 
+        # Id network
+        netArc_checkpoint = opt.arcface_model_path
+        netArc_checkpoint = torch.load(netArc_checkpoint, map_location=torch.device("cpu"))
+        self.netArc = netArc_checkpoint
+        #low vram
+        self.netArc = self.netArc.cuda()
+        self.netArc.eval()
+        self.netArc.requires_grad_(False)
+
         if not self.isTrain:
             pretrained_path =  opt.checkpoints_dir
             self.load_network(self.netG, 'G', opt.which_epoch, pretrained_path)
             return
         self.netD = ProjectedDiscriminator(diffaug=False, interp224=False, **{})
+        # self.netD = Discriminator()
         # self.netD.feature_network.requires_grad_(False)
         self.netD.cuda()
 
@@ -62,11 +75,13 @@ class fsModel(BaseModel):
 
             # optimizer G
             params = list(self.netG.parameters())
-            self.optimizer_G = torch.optim.Adam(params, lr=opt.lr_g, betas=(opt.beta1, 0.99),eps=1e-8)
+            # self.optimizer_G = torch.optim.Adam(params, lr=opt.lr_g, betas=(opt.beta1, 0.99),eps=1e-8)
+            self.optimizer_G = torch.optim.Adam(params, lr=opt.lr_g)
 
             # optimizer D
             params = list(self.netD.parameters())
-            self.optimizer_D = torch.optim.Adam(params, lr=opt.lr_d, betas=(opt.beta1, 0.99),eps=1e-8)
+            # self.optimizer_D = torch.optim.Adam(params, lr=opt.lr_d, betas=(opt.beta1, 0.99),eps=1e-8)
+            self.optimizer_D = torch.optim.Adam(params, lr=opt.lr_d)
 
         # load networks
         if opt.continue_train:
@@ -88,19 +103,19 @@ class fsModel(BaseModel):
     def save(self, which_epoch):
         self.save_network(self.netG, 'G', which_epoch)
         self.save_network(self.netD, 'D', which_epoch)
-        self.save_optim(self.optimizer_G, 'G', which_epoch)
-        self.save_optim(self.optimizer_D, 'D', which_epoch)
+        # self.save_optim(self.optimizer_G, 'G', which_epoch)
+        # self.save_optim(self.optimizer_D, 'D', which_epoch)
         '''if self.gen_features:
             self.save_network(self.netE, 'E', which_epoch, self.gpu_ids)'''
 
-    def update_fixed_params(self):
-        # after fixing the global generator for a number of iterations, also start finetuning it
-        params = list(self.netG.parameters())
-        if self.gen_features:
-            params += list(self.netE.parameters())
-        self.optimizer_G = torch.optim.Adam(params, lr=self.opt.lr_g, betas=(self.opt.beta1, 0.999))
-        if self.opt.verbose:
-            print('------------ Now also finetuning global generator -----------')
+    # def update_fixed_params(self):
+    #     # after fixing the global generator for a number of iterations, also start finetuning it
+    #     params = list(self.netG.parameters())
+    #     if self.gen_features:
+    #         params += list(self.netE.parameters())
+    #     self.optimizer_G = torch.optim.Adam(params, lr=self.opt.lr_g, betas=(self.opt.beta1, 0.999))
+    #     if self.opt.verbose:
+    #         print('------------ Now also finetuning global generator -----------')
 
     def update_learning_rate(self):
         lrd = self.opt.lr / self.opt.niter_decay

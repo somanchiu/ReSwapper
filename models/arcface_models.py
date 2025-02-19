@@ -3,6 +3,8 @@ import torch
 import torch.nn.functional as F
 from torch import nn
 from torch.nn import Parameter
+
+from parsing_model.resnet import conv3x3
 from .config import device, num_classes
 
 

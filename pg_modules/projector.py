@@ -108,9 +108,18 @@ class F_RandomProj(nn.Module):
         self.pretrained, self.scratch = _make_projector(im_res=im_res, cout=self.cout, proj_type=self.proj_type, expand=self.expand)
         self.CHANNELS = self.pretrained.CHANNELS
         self.RESOLUTIONS = self.pretrained.RESOLUTIONS
+        mean = [0.485, 0.456, 0.406]  # RGB mean
+        std = [0.229, 0.224, 0.225]   # RGB std
+        from torchvision import transforms
+
+        # Define preprocessing pipeline for tf_efficientnet_lite0
+        self.preprocess = transforms.Compose([
+            transforms.Normalize(mean=mean, std=std)
+        ])
 
     def forward(self, x, get_features=False):
         # predict feature maps
+        # x = self.preprocess(x)
         out0 = self.pretrained.layer0(x)
         out1 = self.pretrained.layer1(out0)
         out2 = self.pretrained.layer2(out1)

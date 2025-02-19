@@ -65,20 +65,30 @@ class SwappingDataset(data.Dataset):
         """Preprocess the Swapping dataset."""
         print("processing Swapping dataset images...")
 
-        temp_path = os.path.join(self.image_dir,'*')
-        pathes = glob.glob(temp_path)
-        self.dataset = pathes
-        
+        temp_path   = os.path.join(self.image_dir,'*/')
+        pathes      = glob.glob(temp_path)
+        self.dataset = []
+        i=0
+        for dir_item in pathes:
+            # if i==11: break
+            join_path = glob.glob(os.path.join(dir_item,'*.jpg'))
+            print("processing %s"%dir_item,end='\r')
+
+            self.dataset.append(join_path)
+            i+=1
         random.seed(self.random_seed)
         random.shuffle(self.dataset)
-        print('Finished preprocessing the Swapping dataset, total images number: %d...' % len(self.dataset))
-
+        print('Finished preprocessing the Swapping dataset, total dirs number: %d...'%len(self.dataset))
+             
     def __getitem__(self, index):
         """Return two src domain images and two dst domain images."""
-        filename1 = self.dataset[random.randint(0, len(self.dataset)-1)]
-        filename2 = self.dataset[random.randint(0, len(self.dataset)-1)]
-        image1 = self.img_transform(Image.open(filename1))
-        image2 = self.img_transform(Image.open(filename2))
+        dir_tmp1        = self.dataset[index]
+        dir_tmp1_len    = len(dir_tmp1)
+
+        filename1   = dir_tmp1[random.randint(0,dir_tmp1_len-1)]
+        filename2   = dir_tmp1[random.randint(0,dir_tmp1_len-1)]
+        image1      = self.img_transform(Image.open(filename1))
+        image2      = self.img_transform(Image.open(filename2))
         return image1, image2
     
     def __len__(self):
@@ -88,8 +98,7 @@ class SwappingDataset(data.Dataset):
 def GetLoader(  dataset_roots,
                 batch_size=16,
                 dataloader_workers=8,
-                random_seed = 1234,
-                resize_image_to = None
+                random_seed = 1234
                 ):
     """Build and return a data loader."""
         
@@ -99,16 +108,13 @@ def GetLoader(  dataset_roots,
     
     c_transforms = []
 
-    # if resize_image_to:
-    #     c_transforms.append(T.Resize((resize_image_to, resize_image_to)))  # Add resize transform
-
     c_transforms.append(T.ToTensor())
     c_transforms = T.Compose(c_transforms)
 
     content_dataset = SwappingDataset(
                             data_root, 
                             c_transforms,
-                            "png",
+                            "jpg",
                             random_seed)
     content_data_loader = data.DataLoader(dataset=content_dataset,batch_size=batch_size,
                     drop_last=True,shuffle=True,num_workers=num_workers,pin_memory=True)

@@ -38,7 +38,7 @@ class Predictor(cog.Predictor):
 
         options = TestOptions()
         options.initialize()
-        opt = options.parser.parse_args(["--Arc_path", 'arcface_model/arcface_checkpoint.tar', "--pic_a_path", str(source),
+        opt = options.parser.parse_args(["--arcface_model_path", 'arcface_model/arcface_checkpoint.tar', "--pic_a_path", str(source),
                                          "--pic_b_path", str(target), "--isTrain", False, "--no_simswaplogo"])
 
         str_ids = opt.gpu_ids.split(',')

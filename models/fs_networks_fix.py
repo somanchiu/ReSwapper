@@ -16,13 +16,13 @@ class Generator_Adain_Upsample(nn.Module):
         self.target_encoder = nn.Sequential(
             # self.pad,
             nn.Conv2d(3, 128, kernel_size=7, stride=1, padding=0),
-            nn.LeakyReLU(0.2),
+            nn.LeakyReLU(0.2, inplace=True),
             nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1),
-            nn.LeakyReLU(0.2),
+            nn.LeakyReLU(0.2, inplace=True),
             nn.Conv2d(256, 512, kernel_size=3, stride=2, padding=1),
-            nn.LeakyReLU(0.2),
+            nn.LeakyReLU(0.2, inplace=True),
             nn.Conv2d(512, 1024, kernel_size=3, stride=2, padding=1),
-            nn.LeakyReLU(0.2),
+            nn.LeakyReLU(0.2, inplace=True),
         )
 
         # for style_block in self.target_encoder:
@@ -37,14 +37,14 @@ class Generator_Adain_Upsample(nn.Module):
         # Decoder (upsampling)
         self.decoder = nn.Sequential(
             nn.Conv2d(1024, 512, kernel_size=3, stride=1, padding=1),
-            nn.LeakyReLU(0.2)
+            nn.LeakyReLU(0.2, inplace=True)
         )
 
         self.decoderPart1 = nn.Sequential(
             nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=1),
-            nn.LeakyReLU(0.2),
+            nn.LeakyReLU(0.2, inplace=True),
             nn.Conv2d(256, 128, kernel_size=3, stride=1, padding=1),
-            nn.LeakyReLU(0.2)
+            nn.LeakyReLU(0.2, inplace=True)
         )
 
         self.decoderPart2 = nn.Sequential(
