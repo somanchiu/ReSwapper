@@ -14,9 +14,6 @@
 import torch
 import torch.nn as nn
 
-from models.networks import MultiscaleDiscriminator
-from new_discriminator import Discriminator
-
 from .base_model import BaseModel
 from .fs_networks_fix import Generator_Adain_Upsample
 
@@ -45,15 +42,6 @@ class fsModel(BaseModel):
         # Generator network
         self.netG = Generator_Adain_Upsample()
         self.netG.cuda()
-
-        # Id network
-        netArc_checkpoint = opt.arcface_model_path
-        netArc_checkpoint = torch.load(netArc_checkpoint, map_location=torch.device("cpu"))
-        self.netArc = netArc_checkpoint
-        #low vram
-        self.netArc = self.netArc.cuda()
-        self.netArc.eval()
-        self.netArc.requires_grad_(False)
 
         if not self.isTrain:
             pretrained_path =  opt.checkpoints_dir

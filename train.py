@@ -88,7 +88,6 @@ class TrainOptions:
         self.parser.add_argument('--lr_g', type=float, default=0.0004, help='initial learning rate for adam - G')
         self.parser.add_argument('--lr_d', type=float, default=0.0004, help='initial learning rate for adam - D')
 
-        self.parser.add_argument('--Gdeep', type=str2bool, default='False')
         self.parser.add_argument('--resize_image_to', type=int, default=512, help='resize the dataset images to a specific resolution')
 
         # for discriminators         
