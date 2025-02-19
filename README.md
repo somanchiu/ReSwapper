@@ -38,7 +38,7 @@ printable_graph=onnx.helper.printable_graph(model.graph)
 The model architectures of InSwapper and SimSwap are extremely similar and worth paying attention to.
 
 ### Model inputs
-- target: [1, 3, 128, 128] shape image in RGB format with face alignment, normalized to [-1, 1] range
+- target: [1, 3, 128, 128] shape image in RGB format with face alignment, normalized to [0, 1] range
 - source (latent): [1, 512] shape vector, the features of the source face, obtained using the ArcFace model.
     - Calculation of latent
         - The details of ArcFace model
