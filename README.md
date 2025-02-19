@@ -39,7 +39,7 @@ python train.py --use_tensorboard "True" --dataset "VGGface2_HQ/VGGface2_None_no
 ### Notes
 - batchSize must be greater than or equal to 2
 - Tested args:
-  - For the steps from 0 to 6500: --lr_g "0.00005" --lr_d "0.0001" --lambda_feat "1" --batchSize "4"
+  - For the steps from 1 to 6500: --lr_g "0.00005" --lr_d "0.0001" --lambda_feat "1" --batchSize "4"
   - For the steps from 6501 to 40000: --lr_g "0.00005" --lr_d "0.00005" --lambda_feat "1" --batchSize "4"
   - For the steps starting from 40001: --lr_g "0.00005" --lr_d "0.00001" --lambda_feat "1" --batchSize "4"
 
