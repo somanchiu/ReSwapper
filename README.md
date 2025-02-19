@@ -86,6 +86,17 @@ There is no information released from insightface. It is an important part of th
 Face alignment is handled incorrectly at resolutions other than 128. To resolve this issue, add an offset to "dst" in both x and y directions in the function "face_align.estimate_norm". The offset is approximately given by the formula: Offset = (128/32768) * Resolution - 0.5
 
 ## Training
+<details open>
+
+<summary>GAN Approach</summary>
+
+See the [GAN branch](https://github.com/somanchiu/ReSwapper/tree/GAN)
+</details>
+
+<details open>
+
+<summary>Supervised Learning Approach</summary>
+
 ### 0. Pretrained weights (Optional)
 If you don't want to train the model from scratch, you can download the pretrained weights and pass model_path into the train function in train.py.
 
@@ -127,6 +138,8 @@ Enhancing data diversity will improve output quality, you can pass "enableDataAu
 - I'm using an RTX3060 12GB for training. It takes around 12 hours for 50,000 steps.
 - The optimizer may need to be changed to SGD for the final training, as many articles show that SGD can result in lower loss.
 - To get inspiration for improving the model, you might want to review the commented code and unused functions in commit [c2a12e10021ecd1342b9ba50570a16b18f9634b9](https://github.com/somanchiu/ReSwapper/commit/c2a12e10021ecd1342b9ba50570a16b18f9634b9).
+
+</details>
 
 ## Inference
 ```python
