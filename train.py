@@ -27,8 +27,6 @@ from torch.backends import cudnn
 import torch.utils.tensorboard as tensorboard
 
 import Image
-from util import util
-# from util.plot import plot_batch
 
 from models.projected_model import fsModel
 
@@ -118,7 +116,7 @@ class TrainOptions:
         # save to the disk
         if self.opt.isTrain:
             expr_dir = os.path.join(self.opt.checkpoints_dir, self.opt.name)
-            util.mkdirs(expr_dir)
+            os.makedirs(expr_dir, exist_ok=True)
             if save and not self.opt.continue_train:
                 file_name = os.path.join(expr_dir, 'opt.txt')
                 with open(file_name, 'wt') as opt_file:
