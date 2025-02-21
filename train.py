@@ -11,7 +11,7 @@
 #############################################################
 
 import os
-import time
+from datetime import datetime
 import random
 import argparse
 import cv2
@@ -214,6 +214,8 @@ if __name__ == '__main__':
 
     # Training Cycle
     for step in range(start, total_step):
+        start_time = datetime.now()
+
         model.netG.train()
         
         loss_G_Rec = None
@@ -331,6 +333,9 @@ if __name__ == '__main__':
         
         ############## Display results and errors ##########
         ### print out errors
+
+        elapsed_time = datetime.now() - start_time
+
         errors = {
             "G_Loss":loss_Gmain.item(),
             "G_feat_match":feat_match_loss.item(),
@@ -348,6 +353,7 @@ if __name__ == '__main__':
             for tag, value in errors.items():
                 logger.add_scalar(tag, value, step)
         lossesMessage = 'Step: %d: ' % (step + 1)
+        lossesMessage += f'Elapsed time: {elapsed_time} '
         for k, v in errors.items():
             lossesMessage += '%s: %.3f ' % (k, v)
 
