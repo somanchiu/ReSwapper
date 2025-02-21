@@ -216,11 +216,11 @@ if __name__ == '__main__':
     for step in range(start, total_step):
         model.netG.train()
         
+        loss_G_Rec = None
+
         interval = 0
         while interval <= 1 :
             try:
-                loss_G_Rec = None
-
                 random.shuffle(randindex)
                 src_image1_d, src_image2_d  = train_loader.next()
                 
