@@ -132,7 +132,6 @@ def get_device():
 if __name__ == '__main__':
 
     opt         = TrainOptions().parse()
-    iter_path   = os.path.join(opt.checkpoints_dir, opt.name, 'iter.txt')
 
     sample_path = os.path.join(opt.checkpoints_dir, opt.name, 'samples')
 
@@ -157,12 +156,6 @@ if __name__ == '__main__':
     if opt.use_tensorboard:
         tensorboard_writer  = tensorboard.SummaryWriter(log_path)
         logger              = tensorboard_writer
-        
-    log_name = os.path.join(opt.checkpoints_dir, opt.name, 'loss_log.txt')
-
-    with open(log_name, "a") as log_file:
-        now = time.strftime("%c")
-        log_file.write('================ Training Loss (%s) ================\n' % now)
 
     optimizer_G, optimizer_D = model.optimizer_G, model.optimizer_D
 
@@ -191,9 +184,6 @@ if __name__ == '__main__':
     validation_target_latent = torch.from_numpy(validation_target_latent).to(get_device())
     validation_source_latent = torch.from_numpy(validation_source_latent).to(get_device())
     #
-
-    import datetime
-    print("Start to train at %s"%(datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')))
     
     from util.logo_class import logo_class
     logo_class.print_start_training()
@@ -285,10 +275,8 @@ if __name__ == '__main__':
                 latent_id.append(Image.getLatent_v2(arcface, (img_id_112 + 1)/2)[0])
             
             latent_id = torch.stack(latent_id, axis=0)
-            # latent_id = torch.from_numpy(latent_id).to(get_device())
 
             if interval:
-                # for i in range(1):
                 img_fake        = model.netG(src_image1, latent_id)
                 gen_logits,_    = model.netD(preprocess(img_fake.detach()), None)
                 loss_Dgen       = (F.relu(torch.ones_like(gen_logits) + gen_logits)).mean()
@@ -302,8 +290,6 @@ if __name__ == '__main__':
                 torch.nn.utils.clip_grad_norm_(model.netD.parameters(), max_norm=1.0)
                 optimizer_D.step()
             else:
-                # for i in range(10):
-                # model.netD.requires_grad_(True)
                 img_fake        = model.netG(src_image1, latent_id)
                 # G loss
                 gen_logits,feat = model.netD(preprocess(img_fake), None)
@@ -319,17 +305,11 @@ if __name__ == '__main__':
 
                     latent_fake = []
                     for img in img_fake:
-                        # img_fake_img = Image.postprocess_face(img)
-                        # cv2.imwrite("0.jpg", img_fake_img)
-                        # fackFaceInfo = faceAnalysisKV[f'{opt.resize_image_to}'].get(img_fake_img)
                         output_112 = F.interpolate(img.unsqueeze(0), size=(112, 112), mode='bilinear', align_corners=False)
 
                         latent_fake.append(Image.getLatent_v2(arcface, (output_112 + 1 ) /2)[0])
 
-                    # aligned_source_face, _ = face_align.norm_crop2(info['image'], info['info'].kps, image_size=112)
-
                     latent_fake = torch.stack(latent_fake, axis=0)
-
 
                     loss_G_ID       = (1 - model.cosin_metric(latent_fake, latent_id)).mean()
                     loss_G += loss_G_ID * opt.lambda_id
@@ -377,25 +357,22 @@ if __name__ == '__main__':
         if (step + 1) % opt.sample_freq == 0:
             model.netG.eval()
             with torch.no_grad():
-                output_128    = model.netG(validation_target_face_128, validation_source_latent)
+                output_128 = model.netG(validation_target_face_128, validation_source_latent)
 
                 output_image = Image.postprocess_face(output_128)
                 cv2.imwrite(os.path.join(sample_path, str(step+1)+'_128.jpg'), output_image)
                 
-                output_256    = model.netG(validation_target_face_256, validation_source_latent)
+                output_256 = model.netG(validation_target_face_256, validation_source_latent)
 
                 output_image = Image.postprocess_face(output_256)
                 cv2.imwrite(os.path.join(sample_path, str(step+1)+'_256.jpg'), output_image)
-                # To do
-                # plot_batch(imgs, os.path.join(sample_path, 'step_'+str(step+1)+'.jpg'))
-
+                
                 print("Save preview")
 
         ### save latest model
         if (step+1) % opt.model_freq==0:
             print('saving the latest model (steps %d)' % (step+1))
             model.save(step+1)            
-            np.savetxt(iter_path, (step+1, total_step), delimiter=',', fmt='%d')
 
         # opt.resize_image_to += 128
         # if opt.resize_image_to > 256:
