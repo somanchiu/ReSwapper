@@ -337,21 +337,22 @@ if __name__ == '__main__':
         elapsed_time = datetime.now() - start_time
 
         errors = {
-            "G_Loss":loss_Gmain.item(),
-            "G_feat_match":feat_match_loss.item(),
             "D_fake":loss_Dgen.item(),
             "D_real":loss_Dreal.item(),
-            "D_loss":loss_D.item()
+            "D_loss":loss_D.item(),
+            "G_Loss":loss_Gmain.item(),
+            "G_feat_match":feat_match_loss.item()
         }
-
-        if loss_G_Rec is not None:
-            errors["G_Rec"] = loss_G_Rec.item()
 
         if loss_G_ID is not None:
             errors["G_ID"] = loss_G_ID.item()
+        if loss_G_Rec is not None:
+            errors["G_Rec"] = loss_G_Rec.item()
+
         if opt.use_tensorboard:
             for tag, value in errors.items():
                 logger.add_scalar(tag, value, step)
+                
         lossesMessage = 'Step: %d: ' % (step + 1)
         lossesMessage += f'Elapsed time: {elapsed_time} '
         for k, v in errors.items():
