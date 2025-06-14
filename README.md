@@ -146,6 +146,32 @@ Enhancing data diversity will improve output quality, you can pass "enableDataAu
 python swap.py
 ```
 
+## Face Attribute Modification
+The source embedding contains information about various facial attributes. Modifying the source enables adjustments to specific attributes.
+
+### 1. Paired Datasets Collection
+For example, modifying facial hair (Beard vs. No Beard):
+```python
+dataset_a = Embedding.create_linear_direction_dataset("Beard or No Beared\\Train\\Beard", "beard.npy")
+dataset_b = Embedding.create_linear_direction_dataset("Beard or No Beared\\Train\\No Beard", "no_beard.npy")
+```
+### 2. Attribute Direction Calculation
+```python
+direction=Embedding.get_direction(dataset_a, dataset_b, "direction.npy")
+```
+
+### 3. Source Embedding Modification
+```python
+direction = direction / np.linalg.norm(direction)
+latent += direction * face_attribute_steps
+```
+
+Here is the output of Inswapper after modifying the source embedding
+
+| face_attribute_steps | 0 (Original output) | 0.25 | 0.5  | 0.75 | 1.0 |
+|--------|--------|--------|--------|--------|--------|
+|beard_direction.npy|![image](example/SourceEmbeddingModification/beard_0.0.jpg)|![image](example/SourceEmbeddingModification/beard_0.25.jpg)|![image](example/SourceEmbeddingModification/beard_0.5.jpg)|![image](example/SourceEmbeddingModification/beard_0.75.jpg)|![image](example/SourceEmbeddingModification/beard_1.0.jpg)|
+
 ## Pretrained Model
 ### 256 Resolution
 - [reswapper_256-1567500.pth](https://huggingface.co/somanchiu/reswapper/tree/main)
@@ -159,6 +185,10 @@ python swap.py
 
 ### Notes
 If you downloaded the ONNX format model before 2024/11/25, please download the model again or export the model with opset_version=11. This is related to issue #8.
+
+## Attribute Direction
+- [beard_direction.npy
+](https://huggingface.co/somanchiu/reswapper/tree/main/attributeDirection)
 
 ## To Do
 - Create a 512-resolution model (alternative to inswapper_512)

@@ -2,6 +2,7 @@ import argparse
 import os
 
 import cv2
+import numpy as np
 import torch
 import Image
 from insightface.app import FaceAnalysis
@@ -21,6 +22,8 @@ def parse_arguments():
     parser.add_argument('--modelPath', required=True, help='Model path')
     parser.add_argument('--no-paste-back', action='store_true', help='Disable pasting back the swapped face onto the original image')
     parser.add_argument('--resolution', type=int, default=128, help='Resolution')
+    parser.add_argument('--face_attribute_direction', default=None, help='Path of direction.npy')
+    parser.add_argument('--face_attribute_steps', type=float, default=0, help='face_attribute_steps < 0 or face_attribute_steps > 0')
 
     return parser.parse_args()
 
@@ -74,12 +77,18 @@ def main():
     source = args.source
     output_path = args.outputPath
     model_path = args.modelPath
+    face_attribute_direction = args.face_attribute_direction
+    face_attribute_steps = args.face_attribute_steps
 
     model = load_model(model_path)
 
     target_img = cv2.imread(target_image_path)
     target_face_blob, M = create_target(target_img, args.resolution)
     source_latent = create_source(source)
+    if face_attribute_direction is not None:
+        direction = np.load(face_attribute_direction)
+        direction = direction / np.linalg.norm(direction)
+        source_latent += direction * face_attribute_steps
     swapped_face, _ = swap_face(model, target_face_blob, source_latent)
 
     if not args.no_paste_back:
