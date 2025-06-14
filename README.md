@@ -152,12 +152,12 @@ The source embedding contains information about various facial attributes. Modif
 ### 1. Paired Datasets Collection
 For example, modifying facial hair (Beard vs. No Beard):
 ```python
-dataset_a = Embedding.create_linear_direction_dataset("Beard or No Beared\\Train\\Beard", "beard.npy")
-dataset_b = Embedding.create_linear_direction_dataset("Beard or No Beared\\Train\\No Beard", "no_beard.npy")
+dataset_a = FaceAttribute.create_linear_direction_dataset("Beard or No Beared\\Train\\Beard", "beard.npy")
+dataset_b = FaceAttribute.create_linear_direction_dataset("Beard or No Beared\\Train\\No Beard", "no_beard.npy")
 ```
 ### 2. Attribute Direction Calculation
 ```python
-direction=Embedding.get_direction(dataset_a, dataset_b, "direction.npy")
+direction = FaceAttribute.get_direction(dataset_a, dataset_b, "direction.npy")
 ```
 
 ### 3. Source Embedding Modification
