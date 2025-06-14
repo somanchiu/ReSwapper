@@ -63,7 +63,10 @@ def create_target(target_image, resolution):
 def create_source(source_img_path):
     source_image = cv2.imread(source_img_path)
 
-    source_face = faceAnalysis.get(source_image)[0]
+    faces = faceAnalysis.get(source_image)
+    if(len(faces) == 0): return None
+
+    source_face = faces[0]
 
     source_latent = Image.getLatent(source_face)
 
