@@ -4,7 +4,10 @@ import numpy as np
 import swap
 
 def create_linear_direction_dataset(dataset_dir, output_path = None):
-    image_paths = [os.path.join(dataset_dir, fname) for fname in os.listdir(dataset_dir)]
+    image_paths = []
+    for root, _, files in os.walk(dataset_dir):
+        for file in files:
+            image_paths.append(os.path.join(root, file))
 
     embeds_list = []
     for path in image_paths:
